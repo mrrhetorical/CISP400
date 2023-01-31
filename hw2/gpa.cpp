@@ -22,16 +22,16 @@
 using namespace std;
 
 class Date;
-class DynamicArray;
+class ArrayList;
 class FancyText;
 
 void ProgramGreeting();
 void CopyArr(const int*, int*, int);
 char Grade2Lttr(int);
 int GetMenuSelection();
-void AddGrade(DynamicArray*);
-void PrintScores(DynamicArray*);
-int ComputeGpa(DynamicArray*);
+void AddGrade(ArrayList*);
+void PrintScores(ArrayList*);
+int ComputeGpa(ArrayList*);
 void TestDynamicArray();
 void TestDate();
 void TestGrades();
@@ -94,19 +94,19 @@ public:
 // Specification B1 - Dynamic Array
 // This class stores a dynamic array and handles scaling it when new elements are pushed.
 // This class doesn't handle removing an element from the array.
-class DynamicArray {
+class ArrayList {
 private:
 	int* arr;
 	int size;
 public:
-	DynamicArray() {
+	ArrayList() {
 		arr = nullptr;
 		size = 0;
 	}
-	~DynamicArray() {
+	~ArrayList() {
 		delete [] arr;
 	}
-	int getSize() {
+	int length() {
 		return this->size;
 	}
 	// Get the value at a point in the array
@@ -121,7 +121,7 @@ public:
 	void push(int value) {
 		int* newArr = new int[size + 1];
 		// Only copy array if it has any contents
-		if (getSize() > 0) {
+		if (length() > 0) {
 			CopyArr(arr, newArr, size);
 		}
 		newArr[size] = value;
@@ -132,11 +132,11 @@ public:
 	}
 	// Removes an element at the array
 	void remove(int index) {
-		if (index < 0 || index >= getSize())
+		if (index < 0 || index >= length())
 			return;
 		int* newArr = new int[size - 1];
 		CopyArr(arr, newArr, index);
-		CopyArr(arr + index + 1, newArr + index, getSize() - index);
+		CopyArr(arr + index + 1, newArr + index, length() - index);
 		int* pTmp = arr;
 		arr = newArr;
 		size--;
@@ -160,7 +160,7 @@ int main(int argc, char** argv) {
 
 	ProgramGreeting();
 
-	DynamicArray* arr = new DynamicArray();
+	ArrayList* arr = new ArrayList();
 
 	int menuSelection;
 	do {
@@ -195,7 +195,7 @@ void UnitTest() {
 }
 
 void TestDynamicArray() {
-	DynamicArray* arr = new DynamicArray();
+	ArrayList* arr = new ArrayList();
 	arr->push(10);
 	arr->push(18);
 	arr->push(3);
@@ -203,12 +203,12 @@ void TestDynamicArray() {
 	arr->push(17);
 
 	cout << "Size of arr is 5: ";
-	FancyText::deliminate(cout, (arr->getSize() == 5 ? "true" : "false"), (arr->getSize() == 5 ? ASCII_GREEN : ASCII_RED));
+	FancyText::deliminate(cout, (arr->length() == 5 ? "true" : "false"), (arr->length() == 5 ? ASCII_GREEN : ASCII_RED));
 	cout << endl;
 
 	arr->remove(3);
 	cout << "Size of arr after removal is 4: ";
-	FancyText::deliminate(cout, (arr->getSize() == 4 ? "true" : "false"), (arr->getSize() == 4 ? ASCII_GREEN : ASCII_RED));
+	FancyText::deliminate(cout, (arr->length() == 4 ? "true" : "false"), (arr->length() == 4 ? ASCII_GREEN : ASCII_RED));
 	cout << endl;
 
 	cout << "Value at index 2 is 3: ";
@@ -221,7 +221,7 @@ void TestDynamicArray() {
 
 	arr->remove(3);
 	cout << "Size of arr after removal is 3: ";
-	FancyText::deliminate(cout, (arr->getSize() == 3 ? "true" : "false"), (arr->getSize() == 3 ? ASCII_GREEN : ASCII_RED));
+	FancyText::deliminate(cout, (arr->length() == 3 ? "true" : "false"), (arr->length() == 3 ? ASCII_GREEN : ASCII_RED));
 	cout << endl;
 
 	arr->remove(0);
@@ -273,8 +273,8 @@ void TestGrades() {
 }
 
 // Specification C2 - Print scores
-void PrintScores(DynamicArray* arr) {
-	for (int i = 0; i < arr->getSize(); i++) {
+void PrintScores(ArrayList* arr) {
+	for (int i = 0; i < arr->length(); i++) {
 		stringstream ss;
 		ss << "Score " << i << ": " << arr->at(i);
 
@@ -322,7 +322,7 @@ void ProgramGreeting() {
 }
 
 // Specification B2 - Add elements
-void AddGrade(DynamicArray* array) {
+void AddGrade(ArrayList* array) {
 	int grade;
 	cout << "Please enter a grade:" << endl;
 	while (!(cin >> grade)) {
@@ -336,12 +336,12 @@ void AddGrade(DynamicArray* array) {
 }
 
 // Specification C4 - Compute Gpa
-int ComputeGpa(DynamicArray* array) {
+int ComputeGpa(ArrayList* array) {
 	int total = 0;
-	for (int i = 0; i < array->getSize(); i++) {
+	for (int i = 0; i < array->length(); i++) {
 		total += array->at(i);
 	}
-	return (total / array->getSize());
+	return (total / array->length());
 }
 
 // Copies the contents from src to dest arrays up to len values
