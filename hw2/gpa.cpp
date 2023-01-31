@@ -52,13 +52,16 @@ namespace cbrock {
 		// Get the value at a point in the array
 		const int at(int index) {
 			if (index < 0 || index >= length()) {
-				throw std::invalid_argument("Invalid index!");
+				throw std::invalid_argument("Index out of bounds!");
 			}
 			return *(arr + index);
 		}
 
 		// Get the pointer at the index in the array
 		const T* ptrAt(int index) {
+			if (index < 0 || index >= length()) {
+				throw std::invalid_argument("Index out of bounds!");
+			}
 			return arr + index;
 		}
 
@@ -83,8 +86,9 @@ namespace cbrock {
 
 		// Removes an element at the array
 		void remove(int index) {
-			if (index < 0 || index >= length())
-				return;
+			if (index < 0 || index >= length()) {
+				throw std::invalid_argument("Index out of bounds!");
+			}
 			T *newArr = new T[size - 1];
 			CopyArr(arr, newArr, index);
 			CopyArr(arr + index + 1, newArr + index, length() - index);
@@ -95,7 +99,6 @@ namespace cbrock {
 		}
 	};
 }
-
 
 using namespace std;
 using namespace cbrock;
