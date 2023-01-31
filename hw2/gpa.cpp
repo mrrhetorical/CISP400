@@ -18,20 +18,97 @@
 #include <limits>
 #include <chrono>
 #include <cstring>
+#include <stdexcept>
+
+namespace cbrock {
+	// Specification B1 - Dynamic Array
+	// This class stores a dynamic array and handles scaling it when new elements are pushed.
+	template <typename T> class ArrayList {
+	private:
+		T *arr;
+		int size;
+
+		// Copies the contents from src to dest arrays up to len values
+		static void CopyArr(const T *src, T *dest, int len) {
+			for (int i = 0; i < len; i++) {
+				dest[i] = src[i];
+			}
+		}
+
+	public:
+		ArrayList() {
+			arr = nullptr;
+			size = 0;
+		}
+
+		~ArrayList() {
+			delete[] arr;
+		}
+
+		const int length() {
+			return this->size;
+		}
+
+		// Get the value at a point in the array
+		const int at(int index) {
+			if (index < 0 || index >= length()) {
+				throw std::invalid_argument("Invalid index!");
+			}
+			return *(arr + index);
+		}
+
+		// Get the pointer at the index in the array
+		const T* ptrAt(int index) {
+			return arr + index;
+		}
+
+		// Get the array if you want to for some reason
+		const T* getArray() {
+			return this->arr;
+		}
+
+		// Push a new value to the array
+		void push(T value) {
+			T *newArr = new T[size + 1];
+			// Only copy array if it has any contents
+			if (length() > 0) {
+				CopyArr(arr, newArr, size);
+			}
+			newArr[size] = value;
+			size++;
+			int *tmp = arr;
+			arr = newArr;
+			delete[] tmp;
+		}
+
+		// Removes an element at the array
+		void remove(int index) {
+			if (index < 0 || index >= length())
+				return;
+			T *newArr = new T[size - 1];
+			CopyArr(arr, newArr, index);
+			CopyArr(arr + index + 1, newArr + index, length() - index);
+			T *pTmp = arr;
+			arr = newArr;
+			size--;
+			delete[] pTmp;
+		}
+	};
+}
+
 
 using namespace std;
+using namespace cbrock;
 
 class Date;
-class ArrayList;
 class FancyText;
 
 void ProgramGreeting();
-void CopyArr(const int*, int*, int);
 char Grade2Lttr(int);
 int GetMenuSelection();
-void AddGrade(ArrayList*);
-void PrintScores(ArrayList*);
-int ComputeGpa(ArrayList*);
+void AddGrade(ArrayList<int>*);
+void PrintScores(ArrayList<int>*);
+int ComputeGpa(ArrayList<int>*);
 void TestDynamicArray();
 void TestDate();
 void TestGrades();
@@ -91,64 +168,6 @@ public:
 	}
 };
 
-// Specification B1 - Dynamic Array
-// This class stores a dynamic array and handles scaling it when new elements are pushed.
-// This class doesn't handle removing an element from the array.
-class ArrayList {
-private:
-	int* arr;
-	int size;
-public:
-	ArrayList() {
-		arr = nullptr;
-		size = 0;
-	}
-	~ArrayList() {
-		delete [] arr;
-	}
-	int length() {
-		return this->size;
-	}
-	// Get the value at a point in the array
-	int at(int index) {
-		return *(arr + index);
-	}
-	// Get the pointer at the index in the array
-	int* ptrAt(int index) {
-		return arr + index;
-	}
-	// Push a new value to the array
-	void push(int value) {
-		int* newArr = new int[size + 1];
-		// Only copy array if it has any contents
-		if (length() > 0) {
-			CopyArr(arr, newArr, size);
-		}
-		newArr[size] = value;
-		size++;
-		int* tmp = arr;
-		arr = newArr;
-		delete [] tmp;
-	}
-	// Removes an element at the array
-	void remove(int index) {
-		if (index < 0 || index >= length())
-			return;
-		int* newArr = new int[size - 1];
-		CopyArr(arr, newArr, index);
-		CopyArr(arr + index + 1, newArr + index, length() - index);
-		int* pTmp = arr;
-		arr = newArr;
-		size--;
-		delete [] pTmp;
-	}
-	// Get the array if you want to for some reason
-	const int* getArray() {
-		return this->arr;
-	}
-};
-
-
 int main(int argc, char** argv) {
 	if (argc > 1) {
 		if (!strcmp(argv[1], "test")) {
@@ -160,7 +179,7 @@ int main(int argc, char** argv) {
 
 	ProgramGreeting();
 
-	ArrayList* arr = new ArrayList();
+	ArrayList<int>* arr = new ArrayList<int>();
 
 	int menuSelection;
 	do {
@@ -195,7 +214,7 @@ void UnitTest() {
 }
 
 void TestDynamicArray() {
-	ArrayList* arr = new ArrayList();
+	ArrayList<int>* arr = new ArrayList<int>();
 	arr->push(10);
 	arr->push(18);
 	arr->push(3);
@@ -273,7 +292,7 @@ void TestGrades() {
 }
 
 // Specification C2 - Print scores
-void PrintScores(ArrayList* arr) {
+void PrintScores(ArrayList<int>* arr) {
 	for (int i = 0; i < arr->length(); i++) {
 		stringstream ss;
 		ss << "Score " << i << ": " << arr->at(i);
@@ -322,7 +341,7 @@ void ProgramGreeting() {
 }
 
 // Specification B2 - Add elements
-void AddGrade(ArrayList* array) {
+void AddGrade(ArrayList<int>* array) {
 	int grade;
 	cout << "Please enter a grade:" << endl;
 	while (!(cin >> grade)) {
@@ -336,19 +355,12 @@ void AddGrade(ArrayList* array) {
 }
 
 // Specification C4 - Compute Gpa
-int ComputeGpa(ArrayList* array) {
+int ComputeGpa(ArrayList<int>* array) {
 	int total = 0;
 	for (int i = 0; i < array->length(); i++) {
 		total += array->at(i);
 	}
 	return (total / array->length());
-}
-
-// Copies the contents from src to dest arrays up to len values
-void CopyArr(const int* src, int* dest, int len) {
-	for (int i = 0; i < len; i++) {
-		dest[i] = src[i];
-	}
 }
 
 // Specification C3 - Letter Grades
