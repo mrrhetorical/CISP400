@@ -20,6 +20,8 @@
 #include <iomanip>
 #include <chrono>
 
+using namespace std;
+
 namespace cbrock {
 	// This is a dynamically allocated array class
 	template <typename T> class ArrayList {
@@ -48,19 +50,31 @@ namespace cbrock {
 			delete[] arr;
 		}
 
-		const int length() {
+		int length() const {
 			return this->size;
 		}
 
+		bool isEmpty() const {
+			return length() == 0;
+		}
+
 		// Get the value at a point in the array
-		const int at(int index) {
+		T at(int index) const {
 			if (index < 0 || index >= length()) {
-				throw std::invalid_argument("Index out of bounds!");
+				throw invalid_argument("Index out of bounds!");
 			}
 			return *(arr + index);
 		}
 
-		const bool contains(T a) {
+		void put(int index, T value) {
+			if (index < 0 || index >= length()) {
+				throw invalid_argument("Index out of bounds!");
+			}
+
+			*(arr + index) = value;
+		}
+
+		bool contains(T a) const {
 			for (int i = 0; i < length(); i++) {
 				if (at(i) == a)
 					return true;
@@ -71,7 +85,7 @@ namespace cbrock {
 		// Get the pointer at the index in the array
 		const T* ptrAt(int index) {
 			if (index < 0 || index >= length()) {
-				throw std::invalid_argument("Index out of bounds!");
+				throw invalid_argument("Index out of bounds!");
 			}
 			return arr + index;
 		}
@@ -90,7 +104,7 @@ namespace cbrock {
 			}
 			newArr[size] = value;
 			size++;
-			int *tmp = arr;
+			T *tmp = arr;
 			arr = newArr;
 			delete[] tmp;
 		}
@@ -98,7 +112,7 @@ namespace cbrock {
 		// Removes an element at the array
 		void remove(int index) {
 			if (index < 0 || index >= length()) {
-				throw std::invalid_argument("Index out of bounds!");
+				throw invalid_argument("Index out of bounds!");
 			}
 			T *newArr = new T[size - 1];
 			CopyArr(arr, newArr, index);
@@ -110,22 +124,36 @@ namespace cbrock {
 		}
 	};
 
+	class FancyText {
+	public:
+		static const int ASCII_RED = 31;
+		static const int ASCII_GREEN = 32;
+		static void PrintLine(ostream& stream, const char* output, const char* color) {
+			stream << "\033[" << color << "m" << output << "\033[0m" << endl;
+		};
+		static void deliminate(ostream& stream, const char* output, const char* color) {
+			stream << "\033[" << color << "m" << output << "\033[0m";
+		};
+		static void deliminateBoolean(ostream& stream, bool value) {
+			deliminate(cout, value ? "true" : "false", value ? to_string(FancyText::ASCII_GREEN).c_str() : to_string(FancyText::ASCII_RED).c_str());
+		};
+	};
+
 	class Date {
 	private:
 		tm date;
 	public:
 		Date() {
-			time_t time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+			time_t time = chrono::system_clock::to_time_t(chrono::system_clock::now());
 			this->date = *localtime(&time);
 		}
 		Date(int month, int day, int year) {
 			this->SetDate(month, day, year);
 		}
-		void PrintDate(std::ostream& stream) {
-			stream << "Today's date is "
-				   << std::setfill('0') << std::setw(2) << (date.tm_mon + 1)
-				   << "/" << std::setfill('0') << std::setw(2) << date.tm_mday
-				   << "/" << std::setfill('0') << std::setw(4) << (date.tm_year + 1900);
+		void PrintDate(ostream& stream) const {
+			stream << setfill('0') << setw(2) << (date.tm_mon + 1)
+				   << "/" << setfill('0') << setw(2) << date.tm_mday
+				   << "/" << setfill('0') << setw(4) << (date.tm_year + 1900);
 		}
 		void SetDate(int month, int day, int year) {
 			// tm_mon is months since January so have to subtract 1
@@ -133,6 +161,23 @@ namespace cbrock {
 			date.tm_mday = day;
 			// tm_year is years since 1900 so have to subtract 1900
 			date.tm_year = year - 1900;
+		}
+		static void ComponentTest() {
+			Date* other = new Date();
+			other->SetDate(4, 20, 2023);
+			stringstream testStream;
+			other->PrintDate(testStream);
+
+			bool setProperly = other->date.tm_mon == 3 && other->date.tm_year == 123 && other->date.tm_mday == 20;
+			cout << "Date values set properly: ";
+			FancyText::deliminate(cout, setProperly ? "true" : "false", setProperly ? to_string(FancyText::ASCII_GREEN).c_str() : to_string(FancyText::ASCII_RED).c_str());
+			cout << endl;
+
+			bool outputMatches = testStream.str() == "04/20/2023";
+			cout << "Date output matches: ";
+			FancyText::deliminate(cout, outputMatches ? "true" : "false", outputMatches ? to_string(FancyText::ASCII_GREEN).c_str() : to_string(FancyText::ASCII_RED).c_str());
+			cout << endl;
+			delete other;
 		}
 	};
 }
