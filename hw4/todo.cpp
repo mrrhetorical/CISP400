@@ -138,8 +138,6 @@ int main(int argc, char** argv) {
 			todoList->push(todo);
 			todo = new Todo();
 		}
-		inStream.clear();
-		inStream.ignore(numeric_limits<streamsize>::max(), '\n');
 		delete todo;
 	}
 	inStream.close();
@@ -207,9 +205,9 @@ int main(int argc, char** argv) {
 						break;
 					}
 
-					Todo* tmp = todoList->at(index);
+					delete todoList->at(index);
+
 					todoList->remove(index);
-					delete tmp;
 
 					cout << "Item removed!" << endl;
 					break;

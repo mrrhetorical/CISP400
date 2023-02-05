@@ -116,9 +116,8 @@ namespace cbrock {
 			}
 			T *newArr = new T[size - 1];
 			CopyArr(arr, newArr, index);
-			if (index != length() -1) {
-				CopyArr(arr + index + 1, newArr + index, length() - index);
-			}
+			CopyArr(arr + index + 1, newArr + index, length() - index - 1);
+
 			T *pTmp = arr;
 			arr = newArr;
 			size--;
