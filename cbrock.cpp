@@ -116,7 +116,9 @@ namespace cbrock {
 			}
 			T *newArr = new T[size - 1];
 			CopyArr(arr, newArr, index);
-			CopyArr(arr + index + 1, newArr + index, length() - index);
+			if (index != length() -1) {
+				CopyArr(arr + index + 1, newArr + index, length() - index);
+			}
 			T *pTmp = arr;
 			arr = newArr;
 			size--;
@@ -179,5 +181,22 @@ namespace cbrock {
 			cout << endl;
 			delete other;
 		}
+		Date& operator=(const Date& other) {
+			this->date = other.date;
+			return *this;
+		};
+		friend istream& operator>>(istream& in, Date& d) {
+			int month, day, year;
+			char garbage;
+			in >> month >> garbage >> day >> garbage >> year;
+			d.SetDate(month, day, year);
+			return in;
+		};
+		friend ostream& operator<<(ostream& out, const Date& d) {
+			out << setfill('0') << setw(2) << (d.date.tm_mon + 1)
+				<< "/" << setfill('0') << setw(2) << d.date.tm_mday
+				<< "/" << setfill('0') << setw(4) << (d.date.tm_year + 1900);
+			return out;
+		};
 	};
 }
