@@ -23,6 +23,22 @@
 using namespace std;
 
 namespace cbrock {
+
+	class FancyText {
+	public:
+		static const int ASCII_RED = 31;
+		static const int ASCII_GREEN = 32;
+		static void PrintLine(ostream& stream, const char* output, const char* color) {
+			stream << "\033[" << color << "m" << output << "\033[0m" << endl;
+		};
+		static void deliminate(ostream& stream, const char* output, const char* color) {
+			stream << "\033[" << color << "m" << output << "\033[0m";
+		};
+		static void deliminateBoolean(ostream& stream, bool value) {
+			deliminate(stream, value ? "true" : "false", value ? to_string(FancyText::ASCII_GREEN).c_str() : to_string(FancyText::ASCII_RED).c_str());
+		};
+	};
+
 	// This is a dynamically allocated array class
 	template <typename T> class ArrayList {
 	private:
@@ -123,20 +139,32 @@ namespace cbrock {
 			size--;
 			delete[] pTmp;
 		}
-	};
 
-	class FancyText {
-	public:
-		static const int ASCII_RED = 31;
-		static const int ASCII_GREEN = 32;
-		static void PrintLine(ostream& stream, const char* output, const char* color) {
-			stream << "\033[" << color << "m" << output << "\033[0m" << endl;
-		};
-		static void deliminate(ostream& stream, const char* output, const char* color) {
-			stream << "\033[" << color << "m" << output << "\033[0m";
-		};
-		static void deliminateBoolean(ostream& stream, bool value) {
-			deliminate(cout, value ? "true" : "false", value ? to_string(FancyText::ASCII_GREEN).c_str() : to_string(FancyText::ASCII_RED).c_str());
+		static void ComponentTest() {
+			cout << "Testing ArrayList class..." << endl;
+
+			ArrayList<int>* a = new ArrayList<int>();
+			a->push(10);
+			a->push(13);
+			a->push(-1);
+			a->push(256);
+
+			cout << "Created array has correct size: ";
+			FancyText::deliminateBoolean(cout, a->length() == 4);
+
+			a->remove(2);
+			cout << endl << "Deleting element decrements size: ";
+			FancyText::deliminateBoolean(cout, a->length() == 3);
+
+			cout << endl << "New truncated array is as expected: ";
+			FancyText::deliminateBoolean(cout, a->at(0) == 10 && a->at(1) == 13 && a->at(2) == 256);
+
+			a->put(1, 999);
+			cout << endl << "Setting the second element changes the value as expected: ";
+			FancyText::deliminateBoolean(cout, a->at(1) == 999);
+			cout << endl;
+
+
 		};
 	};
 
@@ -164,6 +192,7 @@ namespace cbrock {
 			date.tm_year = year - 1900;
 		}
 		static void ComponentTest() {
+			cout << "Testing Date class" << endl;
 			Date* other = new Date();
 			other->SetDate(4, 20, 2023);
 			stringstream testStream;
@@ -183,6 +212,9 @@ namespace cbrock {
 		Date& operator=(const Date& other) {
 			this->date = other.date;
 			return *this;
+		};
+		bool operator==(const Date& other) {
+			return date.tm_mday == other.date.tm_mday && date.tm_year == other.date.tm_year && date.tm_mon == other.date.tm_mon;
 		};
 		friend istream& operator>>(istream& in, Date& d) {
 			int month, day, year;
