@@ -28,14 +28,17 @@ namespace cbrock {
 	public:
 		static const int ASCII_RED = 31;
 		static const int ASCII_GREEN = 32;
-		static void PrintLine(ostream& stream, const char* output, const char* color) {
+		static ostream& PrintLine(ostream& stream, const char* output, const char* color) {
 			stream << "\033[" << color << "m" << output << "\033[0m" << endl;
+			return ostream;
 		};
-		static void deliminate(ostream& stream, const char* output, const char* color) {
+		static ostream& Print(ostream& stream, const char* output, const char* color) {
 			stream << "\033[" << color << "m" << output << "\033[0m";
+			return stream;
 		};
-		static void deliminateBoolean(ostream& stream, bool value) {
+		static ostream& PrintBool(ostream& stream, bool value) {
 			deliminate(stream, value ? "true" : "false", value ? to_string(FancyText::ASCII_GREEN).c_str() : to_string(FancyText::ASCII_RED).c_str());
+			return stream&;
 		};
 	};
 
