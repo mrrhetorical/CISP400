@@ -207,8 +207,6 @@ namespace cbrock {
 		}
 
 		static void ComponentTest() {
-			cout << "Testing ArrayList class..." << endl;
-
 			ArrayList<int>* a = new ArrayList<int>();
 			a->push(10);
 			a->push(13);
@@ -268,7 +266,7 @@ namespace cbrock {
 			setYear(other.getYear());
 			return *this;
 		};
-		bool operator==(const Date& other) {
+		bool operator==(const Date& other) const {
 			return getMonth() == other.getMonth() && getDay() == other.getDay() && getYear() == other.getYear();
 		};
 		friend istream& operator>>(istream& in, Date& date) {
