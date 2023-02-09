@@ -24,21 +24,84 @@ using namespace std;
 
 namespace cbrock {
 
+	enum AsciiColor {
+		CLEAR = 0,
+		BOLD = 1,
+		UNDERLINE = 4,
+		BLACK = 30,
+		RED = 31,
+		GREEN = 32,
+		YELLOW = 33,
+		BLUE = 34,
+		MAGENTA = 35,
+		CYAN = 36,
+		WHITE = 37,
+	};
+
 	class FancyText {
+	private:
+		int color;
+		void setColor(int value) {
+			this->color = value;
+		};
 	public:
-		static const int ASCII_RED = 31;
-		static const int ASCII_GREEN = 32;
-		static ostream& PrintLine(ostream& stream, const char* output, const char* color) {
-			stream << "\033[" << color << "m" << output << "\033[0m" << endl;
-			return ostream;
+		FancyText(int color) {
+			this->setColor(color);
 		};
-		static ostream& Print(ostream& stream, const char* output, const char* color) {
-			stream << "\033[" << color << "m" << output << "\033[0m";
-			return stream;
+		int getColor() const {
+			return this->color;
 		};
-		static ostream& PrintBool(ostream& stream, bool value) {
-			deliminate(stream, value ? "true" : "false", value ? to_string(FancyText::ASCII_GREEN).c_str() : to_string(FancyText::ASCII_RED).c_str());
-			return stream&;
+		friend ostream& operator<<(ostream& out, const FancyText& fancyText) {
+			out << "\033[" << to_string(fancyText.getColor()) << "m";
+			return out;
+		}
+	};
+
+	class Assert {
+	private:
+		static int tests;
+		static int failures;
+	public:
+		template <typename T> static void assertEquals(T expected, T actual, string text = "") {
+			tests++;
+			if (expected != actual) {
+				failures++;
+				cout << FancyText(AsciiColor::RED) << "Test failure!" << endl;
+				if (!text.empty()) {
+					cout << "Failed test: " << endl;
+					cout << text << endl;
+				}
+				cout << "Expected value: " << expected << endl
+					 << "Actual value: " << actual << FancyText(AsciiColor::CLEAR) << endl;
+			}
+		};
+		static void assertTrue(bool value, string text = "") {
+			assertEquals(true, value, text);
+		};
+		static void analyze() {
+			cout << "Tests ran: " << Assert::tests << endl;
+			cout << "Test failures: " << Assert::failures << endl;
+		}
+	};
+
+	int Assert::tests = 0;
+	int Assert::failures = 0;
+
+	class ColoredBool {
+	private:
+		bool value;
+	public:
+		ColoredBool(bool value) {
+			this->value = value;
+		};
+		friend ostream& operator<<(ostream& out, const ColoredBool& coloredBool) {
+			if (coloredBool.value) {
+				out << FancyText(AsciiColor::GREEN) << "true";
+			} else {
+				out << FancyText(AsciiColor::RED) << "true";
+			}
+			out << FancyText(AsciiColor::CLEAR);
+			return out;
 		};
 	};
 
@@ -152,85 +215,85 @@ namespace cbrock {
 			a->push(-1);
 			a->push(256);
 
-			cout << "Created array has correct size: ";
-			FancyText::deliminateBoolean(cout, a->length() == 4);
+			Assert::assertEquals(4, a->length(), "Ensure created ArrayList has correct size");
 
 			a->remove(2);
-			cout << endl << "Deleting element decrements size: ";
-			FancyText::deliminateBoolean(cout, a->length() == 3);
+			Assert::assertEquals(3, a->length(), "Ensure deleting elements from ArrayList decreases the size");
 
-			cout << endl << "New truncated array is as expected: ";
-			FancyText::deliminateBoolean(cout, a->at(0) == 10 && a->at(1) == 13 && a->at(2) == 256);
+			Assert::assertTrue(a->at(0) == 10 && a->at(1) == 13 && a->at(2) == 256, "Ensure new array list is as expected");
 
 			a->put(1, 999);
-			cout << endl << "Setting the second element changes the value as expected: ";
-			FancyText::deliminateBoolean(cout, a->at(1) == 999);
-			cout << endl;
-
-
+			Assert::assertEquals(999, a->at(1), "Check that setting the second element of the ArrayList changes the value");
 		};
 	};
 
 	class Date {
 	private:
-		tm date;
+		int day, month, year;
+		void setMonth(int value) {
+			this->month = value;
+		};
+		void setDay(int value) {
+			this->day = value;
+		};
+		void setYear(int value) {
+			this->year = value;
+		};
 	public:
 		Date() {
 			time_t time = chrono::system_clock::to_time_t(chrono::system_clock::now());
-			this->date = *localtime(&time);
-		}
+			tm t = *localtime(&time);
+			this->SetDate(t.tm_mon + 1, t.tm_mday, t.tm_year + 1900);
+		};
 		Date(int month, int day, int year) {
 			this->SetDate(month, day, year);
-		}
-		void PrintDate(ostream& stream) const {
-			stream << setfill('0') << setw(2) << (date.tm_mon + 1)
-				   << "/" << setfill('0') << setw(2) << date.tm_mday
-				   << "/" << setfill('0') << setw(4) << (date.tm_year + 1900);
-		}
+		};
 		void SetDate(int month, int day, int year) {
-			// tm_mon is months since January so have to subtract 1
-			date.tm_mon = month - 1;
-			date.tm_mday = day;
-			// tm_year is years since 1900 so have to subtract 1900
-			date.tm_year = year - 1900;
-		}
-		static void ComponentTest() {
-			cout << "Testing Date class" << endl;
-			Date* other = new Date();
-			other->SetDate(4, 20, 2023);
-			stringstream testStream;
-			other->PrintDate(testStream);
-
-			bool setProperly = other->date.tm_mon == 3 && other->date.tm_year == 123 && other->date.tm_mday == 20;
-			cout << "Date values set properly: ";
-			FancyText::deliminate(cout, setProperly ? "true" : "false", setProperly ? to_string(FancyText::ASCII_GREEN).c_str() : to_string(FancyText::ASCII_RED).c_str());
-			cout << endl;
-
-			bool outputMatches = testStream.str() == "04/20/2023";
-			cout << "Date output matches: ";
-			FancyText::deliminate(cout, outputMatches ? "true" : "false", outputMatches ? to_string(FancyText::ASCII_GREEN).c_str() : to_string(FancyText::ASCII_RED).c_str());
-			cout << endl;
-			delete other;
-		}
+			this->month = month;
+			this->day = day;
+			this->year = year;
+		};
+		int getMonth() const {
+			return this->month;
+		};
+		int getDay() const {
+			return this->day;
+		};
+		int getYear() const {
+			return this->year;
+		};
 		Date& operator=(const Date& other) {
-			this->date = other.date;
+			setMonth(other.getMonth());
+			setDay(other.getDay());
+			setYear(other.getYear());
 			return *this;
 		};
 		bool operator==(const Date& other) {
-			return date.tm_mday == other.date.tm_mday && date.tm_year == other.date.tm_year && date.tm_mon == other.date.tm_mon;
+			return getMonth() == other.getMonth() && getDay() == other.getDay() && getYear() == other.getYear();
 		};
-		friend istream& operator>>(istream& in, Date& d) {
-			int month, day, year;
+		friend istream& operator>>(istream& in, Date& date) {
+			int m, d, y;
 			char garbage;
-			in >> month >> garbage >> day >> garbage >> year;
-			d.SetDate(month, day, year);
+			in >> m >> garbage >> d >> garbage >> y;
+			date.SetDate(m, d, y);
 			return in;
 		};
-		friend ostream& operator<<(ostream& out, const Date& d) {
-			out << setfill('0') << setw(2) << (d.date.tm_mon + 1)
-				<< "/" << setfill('0') << setw(2) << d.date.tm_mday
-				<< "/" << setfill('0') << setw(4) << (d.date.tm_year + 1900);
+		friend ostream& operator<<(ostream& out, const Date& date) {
+			out << setfill('0') << setw(2) << date.getMonth()
+				<< "/" << setfill('0') << setw(2) << date.getDay()
+				<< "/" << setfill('0') << setw(4) << date.getYear();
 			return out;
 		};
+		static void ComponentTest() {
+			Date* other = new Date();
+			other->SetDate(4, 20, 2023);
+			stringstream testStream;
+			testStream << *other;
+
+			Assert::assertTrue(other->month == 4 && other->year == 2023 && other->day == 20, "Check that date values are set properly");
+
+			Assert::assertTrue(testStream.str() == "04/20/2023", "Check that the date output matches the format \"MM/DD/YYYY\"");
+			delete other;
+		}
 	};
 }
