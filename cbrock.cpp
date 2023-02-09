@@ -87,24 +87,6 @@ namespace cbrock {
 	int Assert::tests = 0;
 	int Assert::failures = 0;
 
-	class ColoredBool {
-	private:
-		bool value;
-	public:
-		ColoredBool(bool value) {
-			this->value = value;
-		};
-		friend ostream& operator<<(ostream& out, const ColoredBool& coloredBool) {
-			if (coloredBool.value) {
-				out << FancyText(AsciiColor::GREEN) << "true";
-			} else {
-				out << FancyText(AsciiColor::RED) << "true";
-			}
-			out << FancyText(AsciiColor::CLEAR);
-			return out;
-		};
-	};
-
 	// This is a dynamically allocated array class
 	template <typename T> class ArrayList {
 	private:
