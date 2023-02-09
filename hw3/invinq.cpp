@@ -18,6 +18,70 @@
 using namespace std;
 
 namespace cbrock {
+
+	enum AsciiColor {
+		CLEAR = 0,
+		BOLD = 1,
+		UNDERLINE = 4,
+		BLACK = 30,
+		RED = 31,
+		GREEN = 32,
+		YELLOW = 33,
+		BLUE = 34,
+		MAGENTA = 35,
+		CYAN = 36,
+		WHITE = 37,
+	};
+
+	class FancyText {
+	private:
+		int color;
+		void setColor(int value) {
+			this->color = value;
+		};
+	public:
+		FancyText(int color) {
+			this->setColor(color);
+		};
+		int getColor() const {
+			return this->color;
+		};
+		friend ostream& operator<<(ostream& out, const FancyText& fancyText) {
+			out << "\033[" << to_string(fancyText.getColor()) << "m";
+			return out;
+		}
+	};
+
+	class Assert {
+	private:
+		static int tests;
+		static int failures;
+	public:
+		template <typename T> static void assertEquals(T expected, T actual, string text = "") {
+			tests++;
+			if (expected != actual) {
+				failures++;
+				cout << FancyText(AsciiColor::RED) << "Test failure!" << endl;
+				if (!text.empty()) {
+					cout << "Failed test: " << endl;
+					cout << text << endl;
+				}
+				cout << "Expected value: " << expected << endl
+					 << "Actual value: " << actual << FancyText(AsciiColor::CLEAR) << endl;
+			}
+		};
+		static void assertTrue(bool value, string text = "") {
+			assertEquals(true, value, text);
+		};
+		static void analyze() {
+			cout << "Tests ran: " << Assert::tests << endl;
+			cout << "Test failures: " << Assert::failures << endl;
+		}
+	};
+
+	int Assert::tests = 0;
+	int Assert::failures = 0;
+
 	// This is a dynamically allocated array class
 	template <typename T> class ArrayList {
 	private:
@@ -112,69 +176,100 @@ namespace cbrock {
 			T *newArr = new T[size - 1];
 			CopyArr(arr, newArr, index);
 			CopyArr(arr + index + 1, newArr + index, length() - index - 1);
+
 			T *pTmp = arr;
 			arr = newArr;
 			size--;
 			delete[] pTmp;
 		}
-	};
 
-	class FancyText {
-	public:
-		static const int ASCII_RED = 31;
-		static const int ASCII_GREEN = 32;
-		static void PrintLine(ostream& stream, const char* output, const char* color) {
-			stream << "\033[" << color << "m" << output << "\033[0m" << endl;
-		};
-		static void deliminate(ostream& stream, const char* output, const char* color) {
-			stream << "\033[" << color << "m" << output << "\033[0m";
-		};
-		static void deliminateBoolean(ostream& stream, bool value) {
-			deliminate(cout, value ? "true" : "false", value ? to_string(FancyText::ASCII_GREEN).c_str() : to_string(FancyText::ASCII_RED).c_str());
+		static void ComponentTest() {
+			ArrayList<int>* a = new ArrayList<int>();
+			a->push(10);
+			a->push(13);
+			a->push(-1);
+			a->push(256);
+
+			Assert::assertEquals(4, a->length(), "Ensure created ArrayList has correct size");
+
+			a->remove(2);
+			Assert::assertEquals(3, a->length(), "Ensure deleting elements from ArrayList decreases the size");
+
+			Assert::assertTrue(a->at(0) == 10 && a->at(1) == 13 && a->at(2) == 256, "Ensure new array list is as expected");
+
+			a->put(1, 999);
+			Assert::assertEquals(999, a->at(1), "Check that setting the second element of the ArrayList changes the value");
 		};
 	};
 
 	// Specification B1 - Date class
 	class Date {
 	private:
-		tm date;
+		int day, month, year;
+		void setMonth(int value) {
+			this->month = value;
+		};
+		void setDay(int value) {
+			this->day = value;
+		};
+		void setYear(int value) {
+			this->year = value;
+		};
 	public:
 		Date() {
 			time_t time = chrono::system_clock::to_time_t(chrono::system_clock::now());
-			this->date = *localtime(&time);
-		}
+			tm t = *localtime(&time);
+			this->SetDate(t.tm_mon + 1, t.tm_mday, t.tm_year + 1900);
+		};
 		Date(int month, int day, int year) {
 			this->SetDate(month, day, year);
-		}
-		void PrintDate(ostream& stream) const {
-			stream << setfill('0') << setw(2) << (date.tm_mon + 1)
-				   << "/" << setfill('0') << setw(2) << date.tm_mday
-				   << "/" << setfill('0') << setw(4) << (date.tm_year + 1900);
-		}
+		};
 		void SetDate(int month, int day, int year) {
-			// tm_mon is months since January so have to subtract 1
-			date.tm_mon = month - 1;
-			date.tm_mday = day;
-			// tm_year is years since 1900 so have to subtract 1900
-			date.tm_year = year - 1900;
-		}
-
-		// Specification B2 - ComponentTest method in Date
+			this->month = month;
+			this->day = day;
+			this->year = year;
+		};
+		int getMonth() const {
+			return this->month;
+		};
+		int getDay() const {
+			return this->day;
+		};
+		int getYear() const {
+			return this->year;
+		};
+		Date& operator=(const Date& other) {
+			setMonth(other.getMonth());
+			setDay(other.getDay());
+			setYear(other.getYear());
+			return *this;
+		};
+		bool operator==(const Date& other) const {
+			return getMonth() == other.getMonth() && getDay() == other.getDay() && getYear() == other.getYear();
+		};
+		friend istream& operator>>(istream& in, Date& date) {
+			int m, d, y;
+			char garbage;
+			in >> m >> garbage >> d >> garbage >> y;
+			date.SetDate(m, d, y);
+			return in;
+		};
+		friend ostream& operator<<(ostream& out, const Date& date) {
+			out << setfill('0') << setw(2) << date.getMonth()
+				<< "/" << setfill('0') << setw(2) << date.getDay()
+				<< "/" << setfill('0') << setw(4) << date.getYear();
+			return out;
+		};
+		// Specification B2 - Component Test method in Date
 		static void ComponentTest() {
 			Date* other = new Date();
 			other->SetDate(4, 20, 2023);
 			stringstream testStream;
-			other->PrintDate(testStream);
+			testStream << *other;
 
-			bool setProperly = other->date.tm_mon == 3 && other->date.tm_year == 123 && other->date.tm_mday == 20;
-			cout << "Date values set properly: ";
-			FancyText::deliminate(cout, setProperly ? "true" : "false", setProperly ? to_string(FancyText::ASCII_GREEN).c_str() : to_string(FancyText::ASCII_RED).c_str());
-			cout << endl;
+			Assert::assertTrue(other->month == 4 && other->year == 2023 && other->day == 20, "Check that date values are set properly");
 
-			bool outputMatches = testStream.str() == "04/20/2023";
-			cout << "Date output matches: ";
-			FancyText::deliminate(cout, outputMatches ? "true" : "false", outputMatches ? to_string(FancyText::ASCII_GREEN).c_str() : to_string(FancyText::ASCII_RED).c_str());
-			cout << endl;
+			Assert::assertTrue(testStream.str() == "04/20/2023", "Check that the date output matches the format \"MM/DD/YYYY\"");
 			delete other;
 		}
 	};
@@ -240,9 +335,7 @@ public:
 			   << setw(12) << item.getQuantity() << "|"
 			   << setw(16) << fixed << setprecision(2) << item.getWholesaleCost() << "|"
 			   << setw(15) << item.getRetailCost() << "|"
-			   << setw(12);
-		item.getDateAddedToInventory().PrintDate(stream);
-		stream << endl;
+			   << setw(12) << item.getDateAddedToInventory() << endl;
 
 		stream.copyfmt(init);
 		return stream;
@@ -286,30 +379,26 @@ public:
 	static void ComponentTest() {
 		Item* item = new Item();
 
-		bool defaultConstructorWorks = item->getWholesaleCost() == 0 && item->getItemId() == "" && item->getRetailCost() == 0;
-		cout << "Default constructor works: ";
-		FancyText::deliminateBoolean(cout, defaultConstructorWorks);
-		cout << endl;
+		Assert::assertEquals<int>(0, item->getWholesaleCost(), "Check default wholesale cost");
+		Assert::assertEquals<string>("", item->getItemId(), "Check default item id");
+		Assert::assertEquals<int>(0, item->getRetailCost(), "Check default retail cost");
 
 		item->setWholesaleCost(9.99);
-		cout << "Changing wholesale cost changes wholesale and retail costs: ";
-		// Comparison of floats is weird, setting low tolerance for comparison
-		bool costChanges = item->getWholesaleCost() - 9.99 < 0.0000000001 && item->getRetailCost() - 19.98 < 0.0000000001;
-		FancyText::deliminateBoolean(cout, costChanges);
-		cout << endl;
+
+		Assert::assertEquals<float>(9.99, item->getWholesaleCost(), "Changing wholesale cost works");
+		Assert::assertEquals<float>(19.98, item->getRetailCost(), "Changing wholesale cost affects the retail cost");
 
 		delete item;
 		item = new Item("12345", 12, 2);
-		cout << "Parameterized constructor works: ";
-		bool pConstructor = item->getItemId() == "12345" && item->getQuantity() == 12 && item->getWholesaleCost() == 2 && item->getRetailCost() == 4;
-		FancyText::deliminateBoolean(cout, pConstructor);
-		cout << endl;
+
+		Assert::assertEquals<int>(2, item->getWholesaleCost(), "Check parameterized constructor set wholesale cost");
+		Assert::assertEquals<string>("12345", item->getItemId(), "Check parameterized constructor set item id");
+		Assert::assertEquals<int>(4, item->getRetailCost(), "Check parameterized constructor set retail cost");
+		Assert::assertEquals<int>(12, item->getQuantity(), "Check parameterized constructor set quantity");
 
 		item->setQuantity(9);
-		cout << "Changing quantity works" << endl;
-		bool quantityChange = item->getQuantity() == 9;
-		FancyText::deliminateBoolean(cout, quantityChange);
-		cout << endl;
+
+		Assert::assertEquals<int>(9, item->getQuantity(), "Check that changing quantity works");
 
 		delete item;
 	};
@@ -380,8 +469,10 @@ int main(int argc, char** argv) {
 }
 
 void UnitTest() {
+	ArrayList<void*>::ComponentTest();
 	Date::ComponentTest();
 	Item::ComponentTest();
+	Assert::analyze();
 }
 
 void ProgramGreeting() {
@@ -431,6 +522,7 @@ Item* CreateItem() {
 	return CreateItem(itemId);
 }
 
+// Specification A1 - Edit Inventory
 void EditItem(ArrayList<Item*>* itemList) {
 	cout << "Please enter the item id of an item you'd like to edit:" << endl;
 	char* itemId = new char[16];
