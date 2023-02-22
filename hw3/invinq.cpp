@@ -49,7 +49,7 @@ namespace cbrock {
 		friend ostream& operator<<(ostream& out, const FancyText& fancyText) {
 			out << "\033[" << to_string(fancyText.getColor()) << "m";
 			return out;
-		}
+		};
 	};
 
 	class Assert {
@@ -260,7 +260,6 @@ namespace cbrock {
 				<< "/" << setfill('0') << setw(4) << date.getYear();
 			return out;
 		};
-		// Specification B2 - Component Test method in Date
 		static void ComponentTest() {
 			Date* other = new Date();
 			other->SetDate(4, 20, 2023);
@@ -273,6 +272,44 @@ namespace cbrock {
 			delete other;
 		}
 	};
+
+	// Specification B2 - RandNo class
+	class RandNo {
+	private:
+		// Specification B3 - Singleton design pattern
+		static RandNo* instance;
+		int seed;
+		RandNo(int seed = 0) {
+			this->seed = seed;
+			srand(this->seed);
+		};
+		// Returns a random float between 0.0 and 1.0
+		float rand01() const {
+			return (static_cast<float>(rand()) / static_cast<float>(numeric_limits<float>::max()));
+		}
+	public:
+		static const RandNo getInstance() {
+			if (instance == nullptr) {
+				instance = new RandNo(time(0));
+			}
+
+			return *instance;
+		};
+		int getRandomNumber(int min, int max) const {
+			if (min > max) {
+				throw invalid_argument("The minimum value must be below the maximum value!");
+			}
+			return ((rand() % (max - min)) + min);
+		};
+		float getRandomNumber(float min, float max) const {
+			if (min > max) {
+				throw invalid_argument("The minimum value must be below the maximum value!");
+			}
+			return (rand01() * (min - max) + min);
+		}
+	};
+
+	RandNo* RandNo::instance = nullptr;
 }
 
 using namespace cbrock;
@@ -315,7 +352,7 @@ public:
 	};
 	void setWholesaleCost(float value) {
 		this->wholesaleCost = value;
-		this->setRetailCost(getWholesaleCost() * 2);
+		this->setRetailCost(getWholesaleCost() * RandNo::getInstance().getRandomNumber(1.1f, 1.5f));
 	};
 	float getRetailCost() const {
 		return this->retailCost;
@@ -383,17 +420,17 @@ public:
 		Assert::assertEquals<string>("", item->getItemId(), "Check default item id");
 		Assert::assertEquals<int>(0, item->getRetailCost(), "Check default retail cost");
 
-		item->setWholesaleCost(9.99);
+		item->setWholesaleCost(9.99f);
 
-		Assert::assertEquals<float>(9.99, item->getWholesaleCost(), "Changing wholesale cost works");
-		Assert::assertEquals<float>(19.98, item->getRetailCost(), "Changing wholesale cost affects the retail cost");
+		Assert::assertEquals<float>(9.99f, item->getWholesaleCost(), "Changing wholesale cost works");
+		Assert::assertTrue(item->getRetailCost() >= item->getWholesaleCost() * 1.1f && item->getRetailCost() <= item->getWholesaleCost() * 1.5f, "Changing wholesale cost affects the retail cost");
 
 		delete item;
-		item = new Item("12345", 12, 2);
+		item = new Item("12345", 12, 2.0f);
 
 		Assert::assertEquals<int>(2, item->getWholesaleCost(), "Check parameterized constructor set wholesale cost");
 		Assert::assertEquals<string>("12345", item->getItemId(), "Check parameterized constructor set item id");
-		Assert::assertEquals<int>(4, item->getRetailCost(), "Check parameterized constructor set retail cost");
+		Assert::assertTrue(item->getRetailCost() >= item->getWholesaleCost() * 1.1f && item->getRetailCost() <= item->getWholesaleCost() * 1.5f, "Check parameterized constructor set retail cost");
 		Assert::assertEquals<int>(12, item->getQuantity(), "Check parameterized constructor set quantity");
 
 		item->setQuantity(9);
@@ -406,7 +443,7 @@ public:
 
 void ProgramGreeting();
 void UnitTest();
-char GetMenuInput(istream& istream, ArrayList<char>*);
+char GetMenuInput(istream&, ostream&, ArrayList<char>*);
 void AddItem(ArrayList<Item*>*);
 Item* CreateItem();
 Item* CreateItem(const char*);
@@ -444,7 +481,7 @@ int main(int argc, char** argv) {
 			<< "Display <I>nventory" << endl
 			<< "<Q>uit" << endl;
 		// Get input and convert to upper for ease of comparison.
-		input = GetMenuInput(cin, validChars);
+		input = GetMenuInput(cin, cout, validChars);
 		switch(input) {
 			case 'A':
 				AddItem(inventory);
@@ -472,6 +509,19 @@ void UnitTest() {
 	ArrayList<void*>::ComponentTest();
 	Date::ComponentTest();
 	Item::ComponentTest();
+
+	// Testing invalid input. I have to pass in a valid item for the program to continue.
+	stringstream inStr, outStr;
+	inStr << 'T' << endl << 'E' << endl;
+	char tmpValid[5] = {'A', 'D', 'I', 'E', 'Q'};
+	ArrayList<char>* validChars = new ArrayList<char>(tmpValid, 5);
+	GetMenuInput(inStr, outStr, validChars);
+
+	Assert::assertEquals<string>("Invalid selection, please try again!\n", outStr.str(), "Invalid input checkout should match!");
+
+	delete validChars;
+
+
 	Assert::analyze();
 }
 
@@ -581,19 +631,19 @@ void DisplayInventory(ArrayList<Item*>* itemList) {
 }
 
 // Specification C1 - Alpha menu
-char GetMenuInput(istream& istream, ArrayList<char>* validChars) {
+char GetMenuInput(istream& istream, ostream& out, ArrayList<char>* validChars) {
 	char selection;
 	do {
 		// Specification B3 - Menu Input Validation
 		if (!(istream >> selection)) {
 			istream.clear();
 			istream.ignore(numeric_limits<streamsize>::max(), '\n');
-			cout << "Invalid input, please try again!" << endl;
+			out << "Invalid input, please try again!" << endl;
 			continue;
 		} else {
 			selection = (char) toupper(selection);
 			if (!validChars->contains(selection)) {
-				cout << "Invalid selection, please try again!" << endl;
+				out << "Invalid selection, please try again!" << endl;
 				continue;
 			}
 		}

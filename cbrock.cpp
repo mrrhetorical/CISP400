@@ -276,4 +276,40 @@ namespace cbrock {
 			delete other;
 		}
 	};
+
+	class RandNo {
+	private:
+		static RandNo* instance;
+		int seed;
+		RandNo(int seed = 0) {
+			this->seed = seed;
+			srand(this->seed);
+		};
+		// Returns a random float between 0.0 and 1.0
+		float rand01() const {
+			return (static_cast<float>(rand()) / static_cast<float>(numeric_limits<float>::max()));
+		}
+	public:
+		static const RandNo getInstance() {
+			if (instance == nullptr) {
+				instance = new RandNo(time(0));
+			}
+
+			return *instance;
+		};
+		int getRandomNumber(int min, int max) const {
+			if (min > max) {
+				throw invalid_argument("The minimum value must be below the maximum value!");
+			}
+			return ((rand() % (max - min)) + min);
+		};
+		float getRandomNumber(float min, float max) const {
+			if (min > max) {
+				throw invalid_argument("The minimum value must be below the maximum value!");
+			}
+			return (rand01() * (min - max) + min);
+		}
+	};
+
+	RandNo* RandNo::instance = nullptr;
 }
