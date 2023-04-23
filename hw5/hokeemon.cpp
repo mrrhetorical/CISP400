@@ -19,21 +19,21 @@ using namespace cbrock;
 // Specification B2 - Virtual class creature
 class Creature {
 private:
-	virtual ostream& display(ostream& out) const { return out; };
+	virtual ostream& display(ostream& out) const = 0;
 protected:
 	// Specification A1 - Critter name
 	string name;
 	int boredom;
 	int hunger;
 public:
-	virtual void PassTime() {};
-	virtual void Play() {};
-	virtual void Feed() {};
-	virtual const string& getName() const { return ""; };
-	virtual int getBoredom() const { return 0; };
-	virtual void setBoredom(int) {};
-	virtual int getHunger() const { return 0; };
-	virtual void setHunger(int) {};
+	virtual void PassTime() = 0;
+	virtual void Play() = 0;
+	virtual void Feed() = 0;
+	virtual const string& getName() const = 0;
+	virtual int getBoredom() const = 0;
+	virtual void setBoredom(int) = 0;
+	virtual int getHunger() const = 0;
+	virtual void setHunger(int) = 0;
 	// Specification C4 - Overload <<
 	friend ostream& operator<<(ostream& out, const Creature& creature) {
 		return creature.display(out);
@@ -138,6 +138,7 @@ public:
 
 };
 
+// This class needn't implement the methods from Creature as Deez already implements them. This is simply overriding.
 // Specification A3 - Second child class
 class Foo : public Deez {
 public:
@@ -151,7 +152,6 @@ public:
 	void Feed() override {
 		hunger += rand() % 7 + 4;
 	};
-
 };
 
 char GetMenuInput(istream&, ArrayList<char>*);
@@ -181,6 +181,10 @@ int main(int argc, char** argv) {
 
 	Creature* c = new Deez(creatureName);
 
+	// Specification A4 - Write a Lambda
+	auto isStarving = [](Creature& c) { return c.getHunger() < 0; };
+	auto isBored = [](Creature& c) { return c.getBoredom() > 20; };
+
 	char input;
 	do {
 		cout << "Menu: " << endl
@@ -206,6 +210,15 @@ int main(int argc, char** argv) {
 		}
 
 		c->PassTime();
+
+		if (isStarving(*c)) {
+			cout << "Your Hokeemon died of starvation!" << endl;
+			input = 'Q';
+		}
+		if (isBored(*c)) {
+			cout << "Your Hokeemon died of boredom!" << endl;
+			input = 'Q';
+		}
 	} while (input != 'Q');
 
 	delete validChars;
