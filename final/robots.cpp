@@ -1,7 +1,10 @@
 /**
  * Todo: Remove debug defines and includes
  */
-#define DEBUG 0
+//#define DEBUG 0
+
+#define BATTERY_POWER_GAINED 10
+#define BATTERY_POWER_LOST_PER_MOVE 1
 
 #ifdef DEBUG
 #include <bitset>
@@ -10,6 +13,7 @@
 #include <iostream>
 #include <cstring>
 #include <stdexcept>
+#include <fstream>
 
 using namespace std;
 
@@ -50,6 +54,13 @@ public:
 		Tuple* tuple = new Tuple(getX() + other.getX(), getY() + other.getY());
 		return *tuple;
 	};
+	Tuple& operator+=(const Tuple& other) {
+		Tuple* x = &(*this + other);
+		setX(x->getX());
+		setY(x->getY());
+		delete x;
+		return *this;
+	}
 };
 
 enum Square {
@@ -67,11 +78,20 @@ enum GeneMask {
 	INSTRUCTION = 0xf000
 };
 
+enum GeneInstruction {
+	MOVE_NORTH = 0x0,
+	MOVE_SOUTH = 0x1,
+	MOVE_EAST = 0x2,
+	MOVE_WEST = 0x3,
+	MOVE_RANDOM = 0x4
+};
+
 // This is the map for the robots
 class Map {
 private:
 	Square** squares;
 	Tuple dimensions;
+	Tuple startSquare;
 	void generateSquares() {
 		// Note: This is stored upside down (y = 0 is at the top so it must be rendered from end to beginning to show correctly!)
 		this->squares = new Square*[this->dimensions.getY()];
@@ -83,6 +103,7 @@ private:
 		}
 	};
 public:
+	Map() {};
 	Map(const Tuple& dimensions) {
 		this->dimensions = dimensions;
 		this->generateSquares();
@@ -96,8 +117,9 @@ public:
 	Square peek(const Tuple& coords) const {
 		if (!isValidPosition(coords)) {
 			cout << "Out of bounds!" << endl;
-			cout <<" Coords: (" << coords.getX() << ", " << coords.getY() << ")";
-			return Square::WALL; // If out of bounds, it is a wall.
+			cout <<" Coords: (" << coords.getX() << ", " << coords.getY() << ")" << endl;
+			// Allow to peek out of bounds, but just return a wall every time.
+			return Square::WALL;
 		}
 
 		return this->squares[coords.getY()][coords.getX()];
@@ -110,6 +132,31 @@ public:
 	}
 	bool isValidPosition(const Tuple& coords) const {
 		return !(coords.getX() < 0 || coords.getX() >= this->dimensions.getX() || coords.getY() < 0 || coords.getY() > this->dimensions.getY());
+	};
+	const Tuple& getStartSquare() const {
+		return this->startSquare;
+	};
+	void setStartSquare(const Tuple& value) {
+		this->startSquare = value;
+	};
+	friend ostream& operator<<(ostream& out, const Map& map) {
+		for (int y = map.dimensions.getY() - 1; y >= 0; y--) {
+			for (int x = 0; x < map.dimensions.getX(); x++) {
+				auto getValue = [](Square s){
+					switch (s) {
+						case Square::BATTERY:
+							return 'B';
+						case Square::NOTHING:
+							return ' ';
+						default:
+							return '#';
+					}
+				};
+				out << getValue(map.peek(Tuple(x, y)));
+			}
+			out << endl;
+		}
+		return out;
 	};
 
 };
@@ -147,6 +194,8 @@ private:
 	unsigned int* genes;
 	int power;
 	Tuple position;
+	int powerHarvested;
+	int turnsSurvived;
 
 
 	// Returns true if the instruction segment (last 8 bits) of the gene match
@@ -174,11 +223,29 @@ private:
 		}
 	}
 public:
-	Robot(const Tuple& startingPosition) {
-		this->position = startingPosition;
-		this->generateGenes(16);
+	Robot(const Tuple& startingPosition, int startingPower = 10, int geneCount = 16) {
+		setPower(startingPower);
+		setPosition(startingPosition);
+		generateGenes(geneCount);
 	};
-
+	int getPower() const {
+		return this->power;
+	};
+	void setPower(int value) {
+		this->power = value;
+	};
+	int getPowerHarvested() const {
+		return this->powerHarvested;
+	};
+	int getTurnsSurvived() const {
+		return this->turnsSurvived;
+	};
+	const Tuple& getPosition() const {
+		return this->position;
+	};
+	void setPosition(const Tuple& value) {
+		this->position = value;
+	};
 	// Gets the instruction part from a gene
 	unsigned int getInstruction(unsigned int sensors) {
 		for (int i = 0; i < 16; i++) {
@@ -188,13 +255,12 @@ public:
 		}
 		return 0;
 	};
-
 	unsigned int useSensor(const Map& map) {
 		// Check north
-		Square north = map.peek(position + Tuple(0, 1)),
-			south = map.peek(position + Tuple(0, -1)),
-			east = map.peek(position + Tuple(1, 0)),
-			west = map.peek(position + Tuple(1, -1));
+		Square north = map.peek(getPosition() + Tuple(0, 1)),
+			south = map.peek(getPosition() + Tuple(0, -1)),
+			east = map.peek(getPosition() + Tuple(1, 0)),
+			west = map.peek(getPosition() + Tuple(1, -1));
 
 		unsigned int sensorState = 0x0;
 		sensorState = sensorState | (north << 0x6);
@@ -209,31 +275,103 @@ public:
 
 		return getInstruction(sensorState);
 	};
-
 	void compute(const Map& map) {
-		unsigned int instruction = useSensor(map);
+		GeneInstruction instruction = static_cast<GeneInstruction>(useSensor(map));
+		Tuple newPosition(getPosition());
+		if (instruction == GeneInstruction::MOVE_RANDOM) {
+			instruction = static_cast<GeneInstruction>(rand() % 0x4);
+		}
+		switch(instruction) {
+			case MOVE_NORTH:
+				newPosition += Tuple(0, 1);
+				break;
+			case MOVE_SOUTH:
+				newPosition += Tuple(0, -1);
+				break;
+			case MOVE_EAST:
+				newPosition += Tuple(1, 0);
+				break;
+			case MOVE_WEST:
+				newPosition += Tuple(-1, 0);
+				break;
+			default:
+				break;
+		}
+		Square val = map.peek(newPosition);
+		if (val != Square::WALL) {
+			setPosition(newPosition);
+		}
+		if (val == Square::BATTERY) {
+			setPower(getPower() + BATTERY_POWER_GAINED);
+			powerHarvested++;
+		}
 
+		setPower(getPower() - BATTERY_POWER_LOST_PER_MOVE);
+		turnsSurvived++;
 	};
 
 };
 
 void UnitTest();
 
+// Print a c-string
+ostream& printStr(ostream& out, const char* str) {
+	for (int i = 0; i < strlen(str); i++) {
+		out << str[i];
+	}
+	return out;
+}
+
+// Returns the index of a startup parameter, if it exists, or -1 if it doesn't
+int getStartupParameter(int argc, char** argv, const char* value) {
+	for (int i = 0; i < argc; i++) {
+		printStr(cout, argv[i]) << endl;
+		if (!strcmp(argv[i], value))
+			return i;
+	}
+	return -1;
+}
+
+Map* readFileToMap(istream& in);
+
 int main(int argc, char** argv) {
-	if (argc > 1) {
-		if (!strcmp(argv[1], "test")) {
-			cout << "Testing!" << endl;
-			UnitTest();
-			return 0;
-		}
+	if (getStartupParameter(argc, argv, "test") != -1) {
+		cout << "Testing!" << endl;
+		UnitTest();
+		return 0;
 	}
 
 	srand(time(nullptr));
 
-	Map* map = new Map(Tuple(10, 10));
+	Map* map;
 
-	Robot* robot = new Robot(Tuple(5, 5));
-	robot->useSensor(*map);
+	int mapFileInput = getStartupParameter(argc, argv, "mapfile");
+	if (mapFileInput != -1) {
+		if (argc <= mapFileInput) {
+			cout << "Map file not defined!" << endl;
+			return 1;
+		}
+		const char* fileName = argv[mapFileInput + 1];
+		cout << "Map file loaded: " << fileName << endl;
+		ifstream mapFile(fileName);
+
+		map = readFileToMap(mapFile);
+	} else {
+		map = new Map(Tuple(10, 10));
+	}
+
+	cout << "Map file: " << endl << *map << endl;
+
+	ArrayList<Robot*>* robots = new ArrayList<Robot*>();
+	for (int i = 0; i < 10; i++) {
+		robots->push(new Robot(map->getStartSquare()));
+	}
+	Robot* robot = new Robot(map->getStartSquare());
+
+	while(robot->getPower() > 0) {
+		robot->compute(*map);
+	}
+	cout << "This robot survived " << robot->getTurnsSurvived() << " turns!";
 
 	return 0;
 }
@@ -242,4 +380,40 @@ void UnitTest() {
 	ArrayList<void*>::ComponentTest();
 	Date::ComponentTest();
 	Assert::analyze();
+}
+
+Map* readFileToMap(istream& in) {
+	// Read dimensions first
+	int x, y;
+	in >> x >> y;
+	cout << "(" << x << ", " << y << ")" << endl;
+	Map* map = new Map(Tuple(x, y));
+
+	int k = 0;
+	string line;
+	// clear the newline after the header
+	getline(in, line);
+	while (getline(in, line)) {
+		for (int i = 0; i < x; i++) {
+			Square square;
+			char c = line.at(i);
+			switch (c) {
+				case '#':
+					square = Square::WALL;
+					break;
+				case 'B':
+					square = Square::BATTERY;
+					break;
+				case 'S':
+					map->setStartSquare(Tuple(y - k - 1, i));
+				default:
+					square = Square::NOTHING;
+					break;
+			}
+			map->setSquare(Tuple(y - k - 1, i), square);
+		}
+		k++;
+	}
+
+	return map;
 }
