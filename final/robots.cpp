@@ -116,9 +116,6 @@ public:
 	};
 	Square peek(const Tuple& coords) const {
 		if (!isValidPosition(coords)) {
-			cout << "Out of bounds!" << endl;
-			cout <<" Coords: (" << coords.getX() << ", " << coords.getY() << ")" << endl;
-			// Allow to peek out of bounds, but just return a wall every time.
 			return Square::WALL;
 		}
 
@@ -129,7 +126,7 @@ public:
 			throw out_of_range("The coordinates are out of range!");
 
 		this->squares[pos.getY()][pos.getX()] = value;
-	}
+	};
 	bool isValidPosition(const Tuple& coords) const {
 		return !(coords.getX() < 0 || coords.getX() >= this->dimensions.getX() || coords.getY() < 0 || coords.getY() > this->dimensions.getY());
 	};
@@ -138,6 +135,19 @@ public:
 	};
 	void setStartSquare(const Tuple& value) {
 		this->startSquare = value;
+	};
+	void placeBatteries(float spawnRate) {
+		for (int y = 0; y < this->dimensions.getY(); y++) {
+			for (int x = 0; x < this->dimensions.getX(); x++) {
+				if (this->peek(Tuple(x, y)) != Square::NOTHING)
+					continue;
+
+				float r = static_cast<float>(rand() % 100) / 100.0f;
+				if (r > spawnRate) {
+					this->setSquare(Tuple(x, y), Square::BATTERY);
+				}
+			}
+		}
 	};
 	friend ostream& operator<<(ostream& out, const Map& map) {
 		for (int y = map.dimensions.getY() - 1; y >= 0; y--) {
@@ -223,10 +233,18 @@ private:
 		}
 	}
 public:
-	Robot(const Tuple& startingPosition, int startingPower = 10, int geneCount = 16) {
+	Robot(const Tuple& startingPosition = Tuple(0, 0), int startingPower = 10, int geneCount = 16) {
 		setPower(startingPower);
 		setPosition(startingPosition);
 		generateGenes(geneCount);
+		setPowerHarvested(0);
+		setTurnsSurvived(0);
+	};
+	~Robot() {
+		delete [] genes;
+	};
+	void copyGenes(Robot* other, int start, int length) {
+		std::copy(other->genes + start, other->genes + start + length, this->genes + start);
 	};
 	int getPower() const {
 		return this->power;
@@ -237,9 +255,15 @@ public:
 	int getPowerHarvested() const {
 		return this->powerHarvested;
 	};
+	void setPowerHarvested(int value) {
+		this->powerHarvested = value;
+	}
 	int getTurnsSurvived() const {
 		return this->turnsSurvived;
 	};
+	void setTurnsSurvived(int value) {
+		this->turnsSurvived = value;
+	}
 	const Tuple& getPosition() const {
 		return this->position;
 	};
@@ -333,6 +357,9 @@ int getStartupParameter(int argc, char** argv, const char* value) {
 }
 
 Map* readFileToMap(istream& in);
+void sortGeneration(ArrayList<Robot*>*);
+void produceNewGeneration(ArrayList<Robot*>*);
+void resetRobotData(ArrayList<Robot*>*, const Tuple&, int);
 
 int main(int argc, char** argv) {
 	if (getStartupParameter(argc, argv, "test") != -1) {
@@ -358,22 +385,92 @@ int main(int argc, char** argv) {
 		map = readFileToMap(mapFile);
 	} else {
 		map = new Map(Tuple(10, 10));
+		map->setStartSquare(Tuple(5, 5));
 	}
 
-	cout << "Map file: " << endl << *map << endl;
+	cout << "Map: " << endl << *map << endl;
 
+	// Initialize generation 0
 	ArrayList<Robot*>* robots = new ArrayList<Robot*>();
 	for (int i = 0; i < 10; i++) {
-		robots->push(new Robot(map->getStartSquare()));
+		Robot* r = new Robot(map->getStartSquare());
+		robots->push(r);
 	}
-	Robot* robot = new Robot(map->getStartSquare());
 
-	while(robot->getPower() > 0) {
-		robot->compute(*map);
+	auto last = robots->at(0);
+	for (int i = 1; i < robots->length(); i++) {
+		cout << robots->at(i) << endl;
+		cout << "diff : " << (robots->at(i) - last) << endl;
+		last = robots->at(i);
 	}
-	cout << "This robot survived " << robot->getTurnsSurvived() << " turns!";
+
+	cout << "Generation 0 initialized" << endl;
+
+	for (int generation = 0; generation < 10; generation++) {
+		int harvested = 0;
+		for (int i = 0; i < robots->length(); i++) {
+			Robot *robot = robots->at(i);
+			while (robot->getPower() > 0) {
+				robot->compute(*map);
+			}
+			harvested += robot->getPowerHarvested();
+			cout << "Robot " << i << " of generation " << generation << " harvested " << robot->getPowerHarvested() << " power" << endl;
+		}
+		cout << "Robots of generation " << generation << " harvested " << harvested << " power!" << endl;
+		produceNewGeneration(robots);
+		resetRobotData(robots, map->getStartSquare(), 10);
+	}
 
 	return 0;
+}
+
+/**
+ * Sorts the generation by the amount of power that was harvested. Higher amounts of power harvested will have higher idx.
+ * */
+void sortGeneration(ArrayList<Robot*>* robots) {
+	for (int i = 0; i < robots->length() - 1; i++) {
+		if (robots->at(i)->getPowerHarvested() > robots->at(i + 1)->getPowerHarvested()) {
+			Robot* tmp = robots->at(i + 1);
+			robots->put(i + 1, robots->at(i));
+			robots->put(i, tmp);
+		}
+	}
+}
+
+void resetRobotData(ArrayList<Robot*>* robots, const Tuple& startingPosition, int startingPower) {
+	for (int i = 0; i < robots->length(); i++) {
+		Robot* r = robots->at(i);
+		r->setPower(startingPower);
+		r->setPosition(startingPosition);
+		r->setTurnsSurvived(0);
+		r->setPowerHarvested(0);
+	}
+}
+
+void produceNewGeneration(ArrayList<Robot*>* robots) {
+	sortGeneration(robots);
+	// Cull the bottom half of robots
+	for (int i = 0; i < robots->length() / 2; i++) {
+		Robot* r = robots->at(i);
+		delete r;
+		robots->remove(i);
+	}
+	// Pair every one of the two top robots together and create two children with opposing genes
+	for (int i = robots->length(); i > 1; i -= 2) {
+		Robot* a = robots->at(i);
+		Robot* b = robots->at(i - 1);
+
+		Robot* x = new Robot();
+		x->copyGenes(a, 0, 4);
+		x->copyGenes(b, 4, 4);
+
+		Robot* y = new Robot();
+		y->copyGenes(b, 0, 4);
+		y->copyGenes(a, 4, 4);
+
+		robots->push(x);
+		robots->push(y);
+	}
 }
 
 void UnitTest() {
