@@ -1,7 +1,6 @@
 /**
  * Todo: Remove debug defines and includes
  */
-//#define DEBUG 0
 
 #define BATTERY_POWER_GAINED 10
 #define BATTERY_POWER_LOST_PER_MOVE 1
@@ -45,22 +44,25 @@ public:
 	int getY() const {
 		return this->y;
 	}
+	bool operator==(const Tuple& other) const {
+		return this->getX() == other.getX() && this->getY() == other.getY();
+	};
 	Tuple& operator=(const Tuple& other) {
 		setX(other.getX());
 		setY(other.getY());
 		return *this;
 	};
-	Tuple& operator+(const Tuple& other) const {
-		Tuple* tuple = new Tuple(getX() + other.getX(), getY() + other.getY());
-		return *tuple;
+	Tuple operator+(const Tuple& other) const {
+		return {getX() + other.getX(), getY() + other.getY()};
 	};
-	Tuple& operator+=(const Tuple& other) {
-		Tuple* x = &(*this + other);
-		setX(x->getX());
-		setY(x->getY());
-		delete x;
+	Tuple operator+=(const Tuple& other) {
+		*this = *this + other;
 		return *this;
-	}
+	};
+	friend ostream& operator<<(ostream& out, const Tuple& tuple) {
+		out << "(" << tuple.getX() << ", " << tuple.getY() << ")";
+		return out;
+	};
 };
 
 enum Square {
@@ -128,7 +130,7 @@ public:
 		this->squares[pos.getY()][pos.getX()] = value;
 	};
 	bool isValidPosition(const Tuple& coords) const {
-		return !(coords.getX() < 0 || coords.getX() >= this->dimensions.getX() || coords.getY() < 0 || coords.getY() > this->dimensions.getY());
+		return !(coords.getX() < 0 || coords.getX() >= this->dimensions.getX() || coords.getY() < 0 || coords.getY() >= this->dimensions.getY());
 	};
 	const Tuple& getStartSquare() const {
 		return this->startSquare;
@@ -202,10 +204,12 @@ private:
 	 * To extract: flag >> 12 to shift 12 right & get operation
 	 * */
 	unsigned int* genes;
+	int geneCount;
 	int power;
 	Tuple position;
 	int powerHarvested;
 	int turnsSurvived;
+	int id;
 
 
 	// Returns true if the instruction segment (last 8 bits) of the gene match
@@ -224,7 +228,14 @@ private:
 			genes[i] = 0;
 			for (int k = 0; k < 4; k++) {
 				unsigned int sensorGeneValue = rand() % 0x3; // random number between 0-3 (00, 01, 10, 11)
-				sensorGeneValue <<= 0x2 * k; // Shift to 1-3
+				/* 0000 0000 0000 0000
+				 * 0100
+				 * 1100
+				 * 000000
+				 * 01000000
+				 * 0100000000
+				 * */
+				sensorGeneValue <<= 0x2 * k; // Shift to 0-3
 				genes[i] = genes[i] | sensorGeneValue; // Bitwise OR to set new gene state
 			}  // This generates the genes
 			unsigned int outputGeneValue = rand() % 0x4; // random number between 0-4
@@ -234,8 +245,10 @@ private:
 	}
 public:
 	Robot(const Tuple& startingPosition = Tuple(0, 0), int startingPower = 10, int geneCount = 16) {
+		this->id = rand() & 0xFFFF;
 		setPower(startingPower);
 		setPosition(startingPosition);
+		this->geneCount = geneCount;
 		generateGenes(geneCount);
 		setPowerHarvested(0);
 		setTurnsSurvived(0);
@@ -243,7 +256,7 @@ public:
 	~Robot() {
 		delete [] genes;
 	};
-	void copyGenes(Robot* other, int start, int length) {
+	void copyGenes(const Robot* other, int start, int length) {
 		std::copy(other->genes + start, other->genes + start + length, this->genes + start);
 	};
 	int getPower() const {
@@ -261,6 +274,9 @@ public:
 	int getTurnsSurvived() const {
 		return this->turnsSurvived;
 	};
+	int getId() const {
+		return this->id;
+	};
 	void setTurnsSurvived(int value) {
 		this->turnsSurvived = value;
 	}
@@ -272,7 +288,7 @@ public:
 	};
 	// Gets the instruction part from a gene
 	unsigned int getInstruction(unsigned int sensors) {
-		for (int i = 0; i < 16; i++) {
+		for (int i = 0; i < geneCount; i++) {
 			if (compareGene(sensors, genes[i])) {
 				return getInstructionFromGene(genes[i]);
 			}
@@ -284,7 +300,7 @@ public:
 		Square north = map.peek(getPosition() + Tuple(0, 1)),
 			south = map.peek(getPosition() + Tuple(0, -1)),
 			east = map.peek(getPosition() + Tuple(1, 0)),
-			west = map.peek(getPosition() + Tuple(1, -1));
+			west = map.peek(getPosition() + Tuple(-1, 0));
 
 		unsigned int sensorState = 0x0;
 		sensorState = sensorState | (north << 0x6);
@@ -299,7 +315,7 @@ public:
 
 		return getInstruction(sensorState);
 	};
-	void compute(const Map& map) {
+	void compute(Map& map) {
 		GeneInstruction instruction = static_cast<GeneInstruction>(useSensor(map));
 		Tuple newPosition(getPosition());
 		if (instruction == GeneInstruction::MOVE_RANDOM) {
@@ -326,6 +342,7 @@ public:
 			setPosition(newPosition);
 		}
 		if (val == Square::BATTERY) {
+			map.setSquare(newPosition, Square::NOTHING);
 			setPower(getPower() + BATTERY_POWER_GAINED);
 			powerHarvested++;
 		}
@@ -388,25 +405,45 @@ int main(int argc, char** argv) {
 		map->setStartSquare(Tuple(5, 5));
 	}
 
+	map->placeBatteries(0.6f);
+
 	cout << "Map: " << endl << *map << endl;
+
+	cout << "How many generations do you want to run?" << endl;
+	int generations;
+	do {
+		if (!(cin >> generations)) {
+			cin.clear();
+			cin.ignore(numeric_limits<streamsize>::max(), '\n');
+			cout << "Please enter a valid generation count:" << endl;
+			continue;
+		}
+
+		break;
+	} while (true);
+
+	int generationSize;
+	cout << "How big should your generation be?" << endl;
+	do {
+		if (!(cin >> generationSize) || generationSize % 4 != 0) {
+			cin.clear();
+			cin.ignore(numeric_limits<streamsize>::max(), '\n');
+			cout << "Please enter a valid generation count:" << endl;
+			continue;
+		}
+		break;
+	} while (true);
 
 	// Initialize generation 0
 	ArrayList<Robot*>* robots = new ArrayList<Robot*>();
-	for (int i = 0; i < 10; i++) {
+	for (int i = 0; i < generationSize; i++) {
 		Robot* r = new Robot(map->getStartSquare());
 		robots->push(r);
 	}
 
-	auto last = robots->at(0);
-	for (int i = 1; i < robots->length(); i++) {
-		cout << robots->at(i) << endl;
-		cout << "diff : " << (robots->at(i) - last) << endl;
-		last = robots->at(i);
-	}
-
 	cout << "Generation 0 initialized" << endl;
 
-	for (int generation = 0; generation < 10; generation++) {
+	for (int generation = 0; generation < generations; generation++) {
 		int harvested = 0;
 		for (int i = 0; i < robots->length(); i++) {
 			Robot *robot = robots->at(i);
@@ -414,11 +451,11 @@ int main(int argc, char** argv) {
 				robot->compute(*map);
 			}
 			harvested += robot->getPowerHarvested();
-			cout << "Robot " << i << " of generation " << generation << " harvested " << robot->getPowerHarvested() << " power" << endl;
 		}
 		cout << "Robots of generation " << generation << " harvested " << harvested << " power!" << endl;
 		produceNewGeneration(robots);
 		resetRobotData(robots, map->getStartSquare(), 10);
+		map->placeBatteries(0.6f);
 	}
 
 	return 0;
@@ -449,16 +486,19 @@ void resetRobotData(ArrayList<Robot*>* robots, const Tuple& startingPosition, in
 
 void produceNewGeneration(ArrayList<Robot*>* robots) {
 	sortGeneration(robots);
-	// Cull the bottom half of robots
-	for (int i = 0; i < robots->length() / 2; i++) {
-		Robot* r = robots->at(i);
-		delete r;
-		robots->remove(i);
+
+	ArrayList<Robot*>* nextGeneration = new ArrayList<Robot*>();
+	int halfSize = robots->length() / 2;
+	for (int i = 0; i < robots->length(); i++) {
+		if (i < halfSize) {
+			delete robots->at(i);
+		} else {
+			nextGeneration->push(robots->at(i));
+		}
 	}
-	// Pair every one of the two top robots together and create two children with opposing genes
-	for (int i = robots->length(); i > 1; i -= 2) {
-		Robot* a = robots->at(i);
-		Robot* b = robots->at(i - 1);
+	for (int i = 0; i < halfSize; i+=2) {
+		Robot* a = nextGeneration->at(i);
+		Robot* b = nextGeneration->at(i + 1);
 
 		Robot* x = new Robot();
 		x->copyGenes(a, 0, 4);
@@ -468,9 +508,12 @@ void produceNewGeneration(ArrayList<Robot*>* robots) {
 		y->copyGenes(b, 0, 4);
 		y->copyGenes(a, 4, 4);
 
-		robots->push(x);
-		robots->push(y);
+		nextGeneration->push(x);
+		nextGeneration->push(y);
 	}
+
+	delete robots;
+	robots = nextGeneration;
 }
 
 void UnitTest() {
