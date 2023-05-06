@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <fstream>
 #include <functional>
+#include <regex>
 
 typedef unsigned int Gene;
 
@@ -489,6 +490,8 @@ int main(int argc, char** argv) {
 
 	cout << "Generation 0 initialized" << endl;
 
+	ArrayList<Tuple>* outputData = new ArrayList<Tuple>();
+
 	for (int generation = 0; generation < generations; generation++) {
 		int harvested = 0;
 		for (int i = 0; i < robots->length(); i++) {
@@ -498,11 +501,45 @@ int main(int argc, char** argv) {
 			}
 			harvested += robot->getPowerHarvested();
 		}
+		outputData->push(Tuple(generation, harvested));
+#ifdef DEBUG
 		cout << "Robots of generation " << generation << " harvested " << harvested << " power!" << endl;
+#endif
+		if ((generation > 0 && generation % 100 == 0) || generation == generations - 1) {
+			cout << "Generation up to " << generation << " finished..." << endl;
+		}
 		produceNewGeneration(robots);
 		resetRobotData(robots, map->getStartSquare(), 10);
 		map->placeBatteries(0.6f);
 	}
+
+	cout << "Finished running all " << generations << " generations!" << endl
+		<< "Would you like to see the results? (y/n)" << endl;
+
+
+	// Clean up previous inputs
+	cin.clear();
+	cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+	string results;
+	getline(cin, results);
+
+	if (regex_match(results, regex("(yes)|(y)", regex_constants::icase))) {
+		cout << "Writing contents to results.csv..." << endl;
+		ofstream outputFile("results.csv");
+		if (!outputFile) {
+			cerr << "Error opening file results.csv" << endl;
+			return 1;
+		}
+		for (int i = 0; i < outputData->length(); i++) {
+			Tuple tuple = outputData->at(i);
+			outputFile << tuple.getX() << "," << tuple.getY() << endl;
+		}
+		outputFile.close();
+		cout << "Contents written to disk!" << endl;
+	}
+
+	delete outputData;
 
 	return 0;
 }
