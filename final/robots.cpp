@@ -13,6 +13,9 @@
 #include <cstring>
 #include <stdexcept>
 #include <fstream>
+#include <functional>
+
+typedef unsigned int Gene;
 
 using namespace std;
 
@@ -20,6 +23,7 @@ using namespace std;
 
 using namespace cbrock;
 
+// Simple tuple class. Easier than passing in x and y each time to every function. Allows for some basic addition and comparison.
 class Tuple {
 private:
 	int x, y;
@@ -65,12 +69,14 @@ public:
 	};
 };
 
+// This is used to store only particular values within the map
 enum Square {
 	NOTHING = 0x0,
 	WALL = 0x1,
 	BATTERY = 0x2
 };
 
+// This is used to get the specific parts of the gene if needed
 enum GeneMask {
 	GENES = 0xff,
 	GENE_NORTH = 0xc0,
@@ -80,6 +86,7 @@ enum GeneMask {
 	INSTRUCTION = 0xf000
 };
 
+// This is an enum to decode the different gene instructions
 enum GeneInstruction {
 	MOVE_NORTH = 0x0,
 	MOVE_SOUTH = 0x1,
@@ -173,6 +180,9 @@ public:
 
 };
 
+template<typename T> void bubbleSort(ArrayList<T>*, function<int(T, T)>);
+
+// Self-explanatory class
 class Robot {
 private:
 
@@ -203,7 +213,7 @@ private:
 	 * Output is stored in the first 12 bits of the byte
 	 * To extract: flag >> 12 to shift 12 right & get operation
 	 * */
-	unsigned int* genes;
+	Gene* genes;
 	int geneCount;
 	int power;
 	Tuple position;
@@ -212,22 +222,38 @@ private:
 	int id;
 
 
-	// Returns true if the instruction segment (last 8 bits) of the gene match
-	bool compareGene(unsigned int a, unsigned int b) {
+	// Returns how many bits of the instructions DON'T match! Lower is closer match!
+	static int compareGene(Gene a, Gene b) {
 		// This compares just the last 4 bits of the byte (11111111 = 0xff)
-		return (a & GeneMask::GENES) == (b & GeneMask::GENES);
+		int quality = 0;
+		if (!geneMatches(a, b, GeneMask::GENE_NORTH)) {
+			quality++;
+		}
+		if (!geneMatches(a, b, GeneMask::GENE_SOUTH)) {
+			quality++;
+		}
+		if (!geneMatches(a, b, GeneMask::GENE_EAST)) {
+			quality++;
+		}
+		if (!geneMatches(a, b, GeneMask::GENE_WEST)) {
+			quality++;
+		}
+		return quality;
 	};
-
-	unsigned int getInstructionFromGene(unsigned int gene) {
+	// Returns true if the part of the gene specified matches!
+	static bool geneMatches(const Gene a, const Gene b, const GeneMask geneMask) {
+		return (a & geneMask) == (b & geneMask);
+	};
+	static Gene getInstructionFromGene(Gene gene) {
 		// Bit-shifting a 32-bit unsigned integer by 0x1b units leaves only the last 4 bits
 		return gene >> 0xc;
-	}
+	};
 	void generateGenes(int count) {
-		genes = new unsigned int[count];
+		genes = new Gene[count];
 		for (int i = 0; i < count; i++) {
 			genes[i] = 0;
 			for (int k = 0; k < 4; k++) {
-				unsigned int sensorGeneValue = rand() % 0x3; // random number between 0-3 (00, 01, 10, 11)
+				Gene sensorGeneValue = rand() % 0x3; // random number between 0-3 (00, 01, 10, 11)
 				/* 0000 0000 0000 0000
 				 * 0100
 				 * 1100
@@ -238,7 +264,7 @@ private:
 				sensorGeneValue <<= 0x2 * k; // Shift to 0-3
 				genes[i] = genes[i] | sensorGeneValue; // Bitwise OR to set new gene state
 			}  // This generates the genes
-			unsigned int outputGeneValue = rand() % 0x4; // random number between 0-4
+			Gene outputGeneValue = rand() % 0x4; // random number between 0-4
 			outputGeneValue <<= 0xc; // Shift it 12 bits left
 			genes[i] = genes[i] | outputGeneValue;
 		}
@@ -257,7 +283,7 @@ public:
 		delete [] genes;
 	};
 	void copyGenes(const Robot* other, int start, int length) {
-		std::copy(other->genes + start, other->genes + start + length, this->genes + start);
+		copy(other->genes + start, other->genes + start + length, this->genes + start);
 	};
 	int getPower() const {
 		return this->power;
@@ -287,22 +313,40 @@ public:
 		this->position = value;
 	};
 	// Gets the instruction part from a gene
-	unsigned int getInstruction(unsigned int sensors) {
+	Gene getInstruction(Gene sensors) {
+		int match;
+		struct GeneQuality {
+			int index;
+			int quality;
+		};
+		ArrayList<GeneQuality>* candidates = new ArrayList<GeneQuality>;
 		for (int i = 0; i < geneCount; i++) {
-			if (compareGene(sensors, genes[i])) {
-				return getInstructionFromGene(genes[i]);
-			}
+			candidates->push(GeneQuality{i, compareGene(genes[i], sensors)});
 		}
-		return 0;
+
+		// Sort in ascending order (better quality / lowest number first)
+		bubbleSort<GeneQuality>(candidates, [](GeneQuality a, GeneQuality b) {
+			if (a.quality > b.quality)
+				return 1;
+			if (a.quality < b.quality)
+				return -1;
+			return 0;
+		});
+
+		Gene bestMatchGene = getInstructionFromGene(genes[candidates->at(0).index]);
+
+		delete candidates;
+
+		return bestMatchGene;
 	};
-	unsigned int useSensor(const Map& map) {
+	Gene useSensor(const Map& map) {
 		// Check north
 		Square north = map.peek(getPosition() + Tuple(0, 1)),
 			south = map.peek(getPosition() + Tuple(0, -1)),
 			east = map.peek(getPosition() + Tuple(1, 0)),
 			west = map.peek(getPosition() + Tuple(-1, 0));
 
-		unsigned int sensorState = 0x0;
+		Gene sensorState = 0x0;
 		sensorState = sensorState | (north << 0x6);
 		sensorState = sensorState | (south << 0x4);
 		sensorState = sensorState | (east << 0x2);
@@ -363,7 +407,10 @@ ostream& printStr(ostream& out, const char* str) {
 	return out;
 }
 
-// Returns the index of a startup parameter, if it exists, or -1 if it doesn't
+/**
+ * Returns the index of a startup parameter, if it exists, or -1 if it doesn't.
+ * There's probably a better way to do this, but I just wanted to allow the startup parameters to ignore order.
+*/
 int getStartupParameter(int argc, char** argv, const char* value) {
 	for (int i = 0; i < argc; i++) {
 		printStr(cout, argv[i]) << endl;
@@ -374,8 +421,7 @@ int getStartupParameter(int argc, char** argv, const char* value) {
 }
 
 Map* readFileToMap(istream& in);
-void sortGeneration(ArrayList<Robot*>*);
-void produceNewGeneration(ArrayList<Robot*>*);
+void produceNewGeneration(ArrayList<Robot*>*, int = 16);
 void resetRobotData(ArrayList<Robot*>*, const Tuple&, int);
 
 int main(int argc, char** argv) {
@@ -462,14 +508,20 @@ int main(int argc, char** argv) {
 }
 
 /**
- * Sorts the generation by the amount of power that was harvested. Higher amounts of power harvested will have higher idx.
+ * Orders in ascending order as written, but you could just flip the compare() function's logic to achieve the opposite effect.
+ * I love using lambdas like this in C# and Java so I thought it'd be fun to try it in C++
+ *
+ * How to use compare() function:
+ * If compare()'s output is < 0 then first number is smaller
+ * If compare()'s output is > 0 then the first number is greater
+ * If compare()'s output is = 0 then the numbers are equal
  * */
-void sortGeneration(ArrayList<Robot*>* robots) {
-	for (int i = 0; i < robots->length() - 1; i++) {
-		if (robots->at(i)->getPowerHarvested() > robots->at(i + 1)->getPowerHarvested()) {
-			Robot* tmp = robots->at(i + 1);
-			robots->put(i + 1, robots->at(i));
-			robots->put(i, tmp);
+template <typename T> void bubbleSort(ArrayList<T>* arr, function<int(T, T)> compare) {
+	for (int i = 0; i < arr->length() - 1; i++) {
+		if (compare(arr->at(i), arr->at(i + 1)) > 0) {
+			T tmp = arr->at(i + 1);
+			arr->put(i + 1, arr->at(i));
+			arr->put(i, tmp);
 		}
 	}
 }
@@ -484,36 +536,41 @@ void resetRobotData(ArrayList<Robot*>* robots, const Tuple& startingPosition, in
 	}
 }
 
-void produceNewGeneration(ArrayList<Robot*>* robots) {
-	sortGeneration(robots);
+void produceNewGeneration(ArrayList<Robot*>* robots, int geneCount) {
+	// Sort by power harvested in ascending order
+	bubbleSort<Robot*>(robots, [](Robot* x, Robot* y) {
+		if (x->getPowerHarvested() > y->getPowerHarvested())
+			return 1;
+		else if (x->getPowerHarvested() < y->getPowerHarvested())
+			return -1;
+		return 0;
+	});
 
-	ArrayList<Robot*>* nextGeneration = new ArrayList<Robot*>();
 	int halfSize = robots->length() / 2;
-	for (int i = 0; i < robots->length(); i++) {
+	for (int i = 0; i < halfSize; i++) {
 		if (i < halfSize) {
-			delete robots->at(i);
-		} else {
-			nextGeneration->push(robots->at(i));
+			delete robots->at(0);
+			robots->remove(0);
 		}
 	}
-	for (int i = 0; i < halfSize; i+=2) {
-		Robot* a = nextGeneration->at(i);
-		Robot* b = nextGeneration->at(i + 1);
 
-		Robot* x = new Robot();
-		x->copyGenes(a, 0, 4);
-		x->copyGenes(b, 4, 4);
+	int pairs = robots->length() / 2;
+	for (int i = 0; i < pairs; i++) {
+		Robot* parentA = robots->at(i * 2),
+			*parentB = robots->at(i * 2 + 1);
 
-		Robot* y = new Robot();
-		y->copyGenes(b, 0, 4);
-		y->copyGenes(a, 4, 4);
+		Robot* x = new Robot(),
+			*y = new Robot();
 
-		nextGeneration->push(x);
-		nextGeneration->push(y);
+		x->copyGenes(parentA, 0, geneCount / 2);
+		x->copyGenes(parentB, geneCount / 2, geneCount / 2);
+
+		y->copyGenes(parentA, geneCount / 2, geneCount / 2);
+		y->copyGenes(parentB, 0, geneCount / 2);
+
+		robots->push(x);
+		robots->push(y);
 	}
-
-	delete robots;
-	robots = nextGeneration;
 }
 
 void UnitTest() {
