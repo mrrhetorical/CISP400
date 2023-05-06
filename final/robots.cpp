@@ -249,25 +249,29 @@ private:
 		// Bit-shifting a 32-bit unsigned integer by 0x1b units leaves only the last 4 bits
 		return gene >> 0xc;
 	};
+	static Gene generateGene() {
+		Gene gene = 0;
+		for (int k = 0; k < 4; k++) {
+			Gene sensorGeneValue = rand() % 0x3; // random number between 0-3 (00, 01, 10, 11)
+			/* 0000 0000 0000 0000
+			 * 0100
+			 * 1100
+			 * 000000
+			 * 01000000
+			 * 0100000000
+			 * */
+			sensorGeneValue <<= 0x2 * k; // Shift to 0-3
+			gene = gene | sensorGeneValue; // Bitwise OR to set new gene state
+		}  // This generates the genes
+		Gene outputGeneValue = rand() % 0x4; // random number between 0-4
+		outputGeneValue <<= 0xc; // Shift it 12 bits left
+		gene = gene | outputGeneValue;
+		return gene;
+	}
 	void generateGenes(int count) {
 		genes = new Gene[count];
 		for (int i = 0; i < count; i++) {
-			genes[i] = 0;
-			for (int k = 0; k < 4; k++) {
-				Gene sensorGeneValue = rand() % 0x3; // random number between 0-3 (00, 01, 10, 11)
-				/* 0000 0000 0000 0000
-				 * 0100
-				 * 1100
-				 * 000000
-				 * 01000000
-				 * 0100000000
-				 * */
-				sensorGeneValue <<= 0x2 * k; // Shift to 0-3
-				genes[i] = genes[i] | sensorGeneValue; // Bitwise OR to set new gene state
-			}  // This generates the genes
-			Gene outputGeneValue = rand() % 0x4; // random number between 0-4
-			outputGeneValue <<= 0xc; // Shift it 12 bits left
-			genes[i] = genes[i] | outputGeneValue;
+			genes[i] = generateGene();
 		}
 	}
 public:
@@ -285,6 +289,21 @@ public:
 	};
 	void copyGenes(const Robot* other, int start, int length) {
 		copy(other->genes + start, other->genes + start + length, this->genes + start);
+	};
+	void mutateGene(int idx) {
+		// Randomly either frameshift or generate a new gene on mutation
+		if (rand() % 2 == 0) {
+			// Frameshift with wraparound
+			int totalBits = sizeof(Gene) * 8;
+			int shiftAmt = rand() % totalBits;
+			if (rand() % 2 == 0) {
+				genes[idx] = (genes[idx] << shiftAmt) | (genes[idx] >> (totalBits - shiftAmt));
+			} else {
+				genes[idx] = (genes[idx] >> shiftAmt) | (genes[idx] << (totalBits - shiftAmt));
+			}
+		} else {
+			genes[idx] = generateGene();
+		}
 	};
 	int getPower() const {
 		return this->power;
@@ -599,11 +618,21 @@ void produceNewGeneration(ArrayList<Robot*>* robots, int geneCount) {
 		Robot* x = new Robot(),
 			*y = new Robot();
 
+		auto tryToMutate = [geneCount](Robot* r) {
+			// Mutate 5% of the time
+			if (rand() % 100 < 5) {
+				r->mutateGene(rand() % geneCount);
+			}
+		};
+
 		x->copyGenes(parentA, 0, geneCount / 2);
 		x->copyGenes(parentB, geneCount / 2, geneCount / 2);
 
 		y->copyGenes(parentA, geneCount / 2, geneCount / 2);
 		y->copyGenes(parentB, 0, geneCount / 2);
+
+		tryToMutate(x);
+		tryToMutate(y);
 
 		robots->push(x);
 		robots->push(y);
