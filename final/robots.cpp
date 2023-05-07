@@ -2,8 +2,9 @@
  * Todo: Remove debug defines and includes
  */
 
-#define BATTERY_POWER_GAINED 10
+#define BATTERY_POWER_GAINED 5
 #define BATTERY_POWER_LOST_PER_MOVE 1
+#define BATTERY_SPAWN_RATE 0.8f
 
 #ifdef DEBUG
 #include <bitset>
@@ -471,7 +472,7 @@ int main(int argc, char** argv) {
 		map->setStartSquare(Tuple(5, 5));
 	}
 
-	map->placeBatteries(0.6f);
+	map->placeBatteries(BATTERY_SPAWN_RATE);
 
 	cout << "Map: " << endl << *map << endl;
 
@@ -529,7 +530,7 @@ int main(int argc, char** argv) {
 		}
 		produceNewGeneration(robots);
 		resetRobotData(robots, map->getStartSquare(), 10);
-		map->placeBatteries(0.6f);
+		map->placeBatteries(BATTERY_SPAWN_RATE);
 	}
 
 	cout << "Finished running all " << generations << " generations!" << endl
