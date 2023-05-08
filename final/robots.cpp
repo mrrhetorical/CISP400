@@ -147,7 +147,17 @@ public:
 	void setStartSquare(const Tuple& value) {
 		this->startSquare = value;
 	};
-	void placeBatteries(float spawnRate) {
+	void placeBatteries(float spawnRate, bool reset = false) {
+		if (reset) {
+			for (int y = 0; y < this->dimensions.getY(); y++) {
+				for (int x = 0; x < this->dimensions.getX(); x++) {
+					if (this->peek(Tuple(x, y)) == Square::BATTERY) {
+						this->setSquare(Tuple(x, y), Square::NOTHING);
+					}
+				}
+			}
+		}
+
 		for (int y = 0; y < this->dimensions.getY(); y++) {
 			for (int x = 0; x < this->dimensions.getX(); x++) {
 				if (this->peek(Tuple(x, y)) != Square::NOTHING)
@@ -472,7 +482,7 @@ int main(int argc, char** argv) {
 		map->setStartSquare(Tuple(5, 5));
 	}
 
-	map->placeBatteries(BATTERY_SPAWN_RATE);
+	map->placeBatteries(BATTERY_SPAWN_RATE, true);
 
 	cout << "Map: " << endl << *map << endl;
 
@@ -515,6 +525,7 @@ int main(int argc, char** argv) {
 	for (int generation = 0; generation < generations; generation++) {
 		int harvested = 0;
 		for (int i = 0; i < robots->length(); i++) {
+			map->placeBatteries(BATTERY_SPAWN_RATE, true);
 			Robot *robot = robots->at(i);
 			while (robot->getPower() > 0) {
 				robot->compute(*map);
@@ -530,7 +541,6 @@ int main(int argc, char** argv) {
 		}
 		produceNewGeneration(robots);
 		resetRobotData(robots, map->getStartSquare(), 10);
-		map->placeBatteries(BATTERY_SPAWN_RATE);
 	}
 
 	cout << "Finished running all " << generations << " generations!" << endl
