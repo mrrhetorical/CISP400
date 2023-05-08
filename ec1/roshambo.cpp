@@ -31,7 +31,6 @@ enum RockPaperScissors {
 
 void UnitTest();
 
-void SanitizeStream(istream&);
 void GameLoop();
 void PlayRound(PersistentGameData&);
 void DisplayGameData(PersistentGameData&);
@@ -55,12 +54,13 @@ void GameLoop() {
 	PersistentGameData data;
 	while (true) {
 		string input;
-		cout << "What would you like to do?\n1. [P]lay\n2. [Q]uit" << endl;
-		SanitizeStream(cin);
+		cout << "What would you like to do?\n1. [P]lay\n2. [V]iew scores\n3. [Q]uit" << endl;
 		getline(cin, input);
 		if (regex_match(input, regex("P|(play)|1", regex_constants::icase))) {
 			PlayRound(data);
-		} else if (regex_match(input, regex("Q|(quit)|2", regex_constants::icase))) {
+		} else if (regex_match(input, regex("V|(view)|2", regex_constants::icase))) {
+			DisplayGameData(data);
+		} else if (regex_match(input, regex("Q|(quit)|3", regex_constants::icase))) {
 			DisplayGameData(data);
 			break;
 		} else {
@@ -74,7 +74,6 @@ void PlayRound(PersistentGameData& data) {
 	while (true) {
 		string input;
 		cout << "Pick your choice between rock, paper, or scissors:" << endl;
-		SanitizeStream(cin);
 		getline(cin, input);
 		if (regex_match(input, regex("(rock)|r", regex_constants::icase))) {
 			playerChoice = RockPaperScissors::ROCK;
@@ -92,20 +91,26 @@ void PlayRound(PersistentGameData& data) {
 	srand(time(nullptr));
 	RockPaperScissors cpuChoice = static_cast<RockPaperScissors>(rand() % 3);
 
+	cout << "The computer picked " << (cpuChoice == RockPaperScissors::ROCK ? "rock" : cpuChoice == RockPaperScissors::PAPER ? "paper" : "scissors") << "!" << endl;
+
+	data.handsPlayed++;
 	int result = compare(playerChoice, cpuChoice);
-
-
-
+	if (result > 0) {
+		data.playerWins++;
+		cout << "You won this round!" << endl;
+	} else if (result < 0) {
+		data.computerWins++;
+		cout << "You lost this round!" << endl;
+	} else {
+		cout << "You drew this round!" << endl;
+	}
 }
 
 void DisplayGameData(PersistentGameData& data) {
-
-}
-
-// Sanitizes the input stream to get ready to read in a string
-void SanitizeStream(istream& in) {
-	in.clear();
-	in.ignore(numeric_limits<streamsize>::max(), '\n');
+	cout << "You have played a total of " << data.handsPlayed << " hands." << endl
+		<< "You won " << data.playerWins << " of those hands," << endl
+		<< "the computer won " << data.computerWins << " of those hands," << endl
+		<< "and you drew " << (data.handsPlayed - data.playerWins - data.computerWins) << " of those hands!" << endl;
 }
 
 /**
