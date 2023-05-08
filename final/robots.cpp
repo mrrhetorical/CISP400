@@ -756,7 +756,7 @@ int main(int argc, char** argv) {
 
 	map->placeBatteries(0.6f, true);
 
-	cout << "Map: " << endl << *map << endl;
+	cout << "Welcome to the robot evolution program by Caleb Brock!" << endl;
 
 	cout << "How many generations do you want to run?" << endl;
 	int generations;
