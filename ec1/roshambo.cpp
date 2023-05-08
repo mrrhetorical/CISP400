@@ -7,15 +7,8 @@
 #include <cstring>
 #include <regex>
 #include <stdexcept>
-#include <sstream>
-#include <iomanip>
-#include <chrono>
 
 using namespace std;
-
-#include "../cbrock.cpp"
-
-using namespace cbrock;
 
 struct PersistentGameData {
 	int playerWins = 0,
@@ -29,7 +22,6 @@ enum RockPaperScissors {
 	SCISSORS = 2
 };
 
-void UnitTest();
 
 void GameLoop();
 void PlayRound(PersistentGameData&);
@@ -37,16 +29,7 @@ void DisplayGameData(PersistentGameData&);
 int compare(RockPaperScissors, RockPaperScissors);
 
 int main(int argc, char** argv) {
-	if (argc > 1) {
-		if (!strcmp(argv[1], "test")) {
-			cout << "Testing!" << endl;
-			UnitTest();
-			return 0;
-		}
-	}
-
 	GameLoop();
-
 	return 0;
 }
 
@@ -127,10 +110,4 @@ int compare(RockPaperScissors a, RockPaperScissors b) {
 	}
 
 	return b == RockPaperScissors::PAPER ? 1 : -1;
-}
-
-void UnitTest() {
-	Date::ComponentTest();
-	ArrayList<void*>::ComponentTest();
-	Assert::analyze();
 }
