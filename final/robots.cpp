@@ -148,24 +148,16 @@ public:
 		this->startSquare = value;
 	};
 	void placeBatteries(float spawnRate, bool reset = false) {
-		if (reset) {
-			for (int y = 0; y < this->dimensions.getY(); y++) {
-				for (int x = 0; x < this->dimensions.getX(); x++) {
-					if (this->peek(Tuple(x, y)) == Square::BATTERY) {
-						this->setSquare(Tuple(x, y), Square::NOTHING);
-					}
-				}
-			}
-		}
-
 		for (int y = 0; y < this->dimensions.getY(); y++) {
 			for (int x = 0; x < this->dimensions.getX(); x++) {
-				if (this->peek(Tuple(x, y)) != Square::NOTHING)
+				if (this->peek(Tuple(x, y)) == Square::WALL)
 					continue;
 
 				float r = static_cast<float>(rand() % 100) / 100.0f;
 				if (r > spawnRate) {
 					this->setSquare(Tuple(x, y), Square::BATTERY);
+				} else if (reset) {
+					this->setSquare(Tuple(x, y), Square::NOTHING);
 				}
 			}
 		}
