@@ -622,7 +622,6 @@ public:
 	};
 	// Gets the instruction part from a gene
 	Gene getInstruction(Gene sensors) {
-		int match;
 		struct GeneQuality {
 			int index;
 			int quality;
@@ -704,7 +703,7 @@ void UnitTest();
 
 // Print a c-string
 ostream& printStr(ostream& out, const char* str) {
-	for (int i = 0; i < strlen(str); i++) {
+	for (size_t i = 0; i < strlen(str); i++) {
 		out << str[i];
 	}
 	return out;
